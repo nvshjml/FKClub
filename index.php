@@ -8,157 +8,156 @@ session_start();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FK Club System - Welcome</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>FKClub - Login</title>
     <style>
-        /* 1. Global Reset & Modern Font */
-        * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        
-        /* 2. Beautiful Gradient Background */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            /* Simulates the blurred campus background from your references */
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') no-repeat center center/cover;
+            backdrop-filter: blur(5px);
+            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            color: #333;
         }
 
-        /* 3. Floating Modern Card */
-        .login-container {
-            background-color: rgba(255, 255, 255, 0.95);
-            padding: 40px 50px;
-            border-radius: 16px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.05);
-            width: 100%;
-            max-width: 420px;
-            backdrop-filter: blur(10px); /* Gives a slight glass effect */
-        }
-
-        /* 4. Sleek Typography */
-        h2 {
-            text-align: center;
-            color: #1a202c;
-            margin-bottom: 8px;
-            font-size: 28px;
-            font-weight: 700;
-        }
-        .subtitle {
-            text-align: center;
-            color: #718096;
-            margin-top: 0;
-            margin-bottom: 30px;
-            font-size: 14px;
-        }
-
-        /* 5. Clean Input Fields */
-        .form-group { margin-bottom: 20px; }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #4a5568;
-            font-weight: 600;
-            font-size: 14px;
-        }
-        input[type="email"], input[type="password"] {
-            width: 100%;
-            padding: 14px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            background-color: #f8fafc;
-            font-size: 15px;
-            transition: all 0.3s ease; /* Smooth animation */
-        }
-        
-        /* The glow effect when typing */
-        input[type="email"]:focus, input[type="password"]:focus {
-            border-color: #3182ce;
+        .auth-card {
             background-color: #ffffff;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.2);
-        }
-        
-        /* 6. Vibrant, Animated Buttons */
-        .btn-login {
             width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #3182ce 0%, #2b6cb0 100%);
+            max-width: 450px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 30px 20px 20px;
+            text-align: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .card-header img {
+            max-width: 120px;
+            margin-bottom: 10px;
+        }
+
+        .card-header h2 {
+            font-size: 1.2rem;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .card-body {
+            padding: 30px 40px 40px;
+        }
+
+        .instruction {
+            text-align: center;
+            color: #555;
+            font-size: 0.95rem;
+            margin-bottom: 25px;
+            font-weight: 500;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: #333;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            background-color: #f8f9fa;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #0d6efd; /* UMPSA Blue */
+            background-color: #fff;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            background-color: #0d6efd; /* UMPSA Blue */
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 700;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
             margin-top: 10px;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .btn-login:hover { 
-            transform: translateY(-2px); /* Button lifts up slightly */
-            box-shadow: 0 7px 14px rgba(49, 130, 206, 0.3);
+            transition: background-color 0.3s;
         }
 
-        /* 7. Elegant Divider */
-        .divider {
-            display: flex;
-            align-items: center;
+        .btn-primary:hover {
+            background-color: #0b5ed7;
+        }
+        
+        .register-link {
+            display: block;
             text-align: center;
-            margin: 25px 0;
-            color: #a0aec0;
-            font-size: 14px;
+            margin-top: 20px;
+            color: #0d6efd;
+            text-decoration: none;
+            font-size: 0.9rem;
             font-weight: 600;
         }
-        .divider::before, .divider::after {
-            content: '';
-            flex: 1;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .divider:not(:empty)::before { margin-right: .25em; }
-        .divider:not(:empty)::after { margin-left: .25em; }
         
-        /* Secondary Action Button */
-        .btn-register {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            background-color: #edf2f7;
-            color: #2d3748;
-            text-align: center;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 16px;
-            transition: all 0.2s;
-        }
-        .btn-register:hover { 
-            background-color: #e2e8f0; 
-            color: #1a202c;
+        .register-link:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
 
-    <div class="login-container">
-        <h2>Welcome Back</h2>
-        <p class="subtitle">Log in to the FK Club System</p>
+    <div class="auth-card">
+        <div class="card-header">
+            <img src="LogoUMP5.png" alt="UMPSA Logo" class="logo">
+            <h2>FKClub Login</h2>
+        </div>
         
-        <form action="login_process.php" method="POST">
-            <div class="form-group">
-                <label for="email">Email Address</label>
-                <input type="email" id="email" name="email" required placeholder="student@siswa.edu">
-            </div>
-
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" required placeholder="••••••••">
-            </div>
-
-            <button type="submit" name="login_btn" class="btn-login">Sign In</button>
-        </form>
-
-        <div class="divider">New Student?</div>
-        
-        <a href="public_register.php" class="btn-register">Create an Account</a>
+        <div class="card-body">
+            <p class="instruction">Enter credentials to access dashboard</p>
+            
+            <!-- Changed action back to your processing script -->
+            <form action="login_process.php" method="POST">
+                <div class="form-group">
+                    <label>Student ID / Username</label>
+                    <!-- Added name="email" so your old backend still recognizes it -->
+                    <input type="text" name="email" class="form-control" placeholder="e.g., CB24060" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Password</label>
+                    <!-- Added name="password" -->
+                    <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                </div>
+                
+                <!-- Added name="login_btn" -->
+                <button type="submit" name="login_btn" class="btn-primary">Login</button>
+            </form>
+            
+            <!-- Kept your old registration link but styled to match the new UI -->
+            <a href="public_register.php" class="register-link">Create an Account</a>
+        </div>
     </div>
 
 </body>
