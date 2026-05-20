@@ -76,7 +76,10 @@ $comm_result = $stmt_comm->get_result();
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
-        body { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); min-height: 100vh; padding: 40px 20px; color: #333; }
+        body {  
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') no-repeat center center/cover; min-height: 100vh; padding: 40px 20px; color: #333; 
+            backdrop-filter: blur(5px);
+        }
         
         .profile-wrapper { display: flex; flex-direction: column; gap: 20px; max-width: 600px; margin: 0 auto; }
         .card { background-color: rgba(255, 255, 255, 0.95); padding: 35px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.05); backdrop-filter: blur(10px); }
@@ -110,7 +113,7 @@ $comm_result = $stmt_comm->get_result();
         .alert-error { background-color: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
         
         .top-nav { max-width: 600px; margin: 0 auto 20px auto; }
-        .btn-back { color: #4a5568; text-decoration: none; font-weight: 600; font-size: 15px; transition: 0.2s; }
+        .btn-back { color: #000000; text-decoration: none; font-weight: 600; font-size: 15px; transition: 0.2s; }
         .btn-back:hover { color: #2b6cb0; }
         
         #editFormCard { animation: slideDown 0.3s ease-out forwards; }
