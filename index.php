@@ -130,7 +130,7 @@ session_start();
 
     <div class="auth-card">
         <div class="card-header">
-            <img src="LogoUMP5.png" alt="UMPSA Logo" class="logo">
+            <img src="image/LogoUMP5.png" alt="UMPSA Logo" class="logo">
             <h2>FKClub Login</h2>
         </div>
         
