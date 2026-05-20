@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'db_connect.php';
+require 'session_timeout.php';
 
 // SECURITY CHECK
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] == 'Admin') {

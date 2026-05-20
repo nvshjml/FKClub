@@ -1,16 +1,16 @@
 <?php
 session_start();
 require 'db_connect.php';
+require 'session_timeout.php';
 
-// SECURITY CHECK: If they are not logged in, OR they are not an Admin, kick them out!
+
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
     header("Location: index.php");
     exit();
 }
 
-// ---------------------------------------------------------
-// 1. FETCH DASHBOARD STATISTICS
-// ---------------------------------------------------------
+
+
 $stmt1 = $conn->query("SELECT COUNT(*) AS total FROM `USER` WHERE role IN ('Student', 'Committee') AND account_status = 'Approved'");
 $total_students = $stmt1->fetch_assoc()['total'];
 
