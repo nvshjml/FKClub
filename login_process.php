@@ -29,8 +29,12 @@ if (isset($_POST['login_btn'])) {
             $_SESSION['role'] = $user['role'];
             $_SESSION['name'] = $user['name'];
 
+            // FIXED: Added Committee redirect
             if ($user['role'] == 'Admin') {
                 header("Location: admin_dashboard.php");
+                exit();
+            } elseif ($user['role'] == 'Committee') {
+                header("Location: committee_dashboard.php");
                 exit();
             } else {
                 header("Location: student_dashboard.php");
