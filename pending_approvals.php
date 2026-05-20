@@ -114,7 +114,9 @@ if($sidebar_stmt) {
         <div class="sidebar-brand">FK Club Admin</div>
         <div class="nav-links-sidebar">
             <a href="admin_dashboard.php">Dashboard</a>
-            <a href="admin_qr_dashboard.php">QR & Attendance</a>
+            
+            <a href="admin_attendance.php">Attendance</a>
+            
             <a href="pending_approvals.php" class="active">
                 <span>Approvals</span>
                 <?php if($sidebar_pending_count > 0): ?>

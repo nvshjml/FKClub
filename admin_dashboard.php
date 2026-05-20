@@ -148,7 +148,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <div class="sidebar-brand">FK Club Admin</div>
         <div class="nav-links-sidebar">
             <a href="admin_dashboard.php" class="<?php echo ($current_page == 'admin_dashboard.php') ? 'active' : ''; ?>">Dashboard</a>
-            <a href="admin_qr_dashboard.php" class="<?php echo ($current_page == 'admin_qr_dashboard.php') ? 'active' : ''; ?>">QR & Attendance</a>
+            <a href="admin_attendance.php" class="<?php echo ($current_page == 'admin_attendance.php') ? 'active' : ''; ?>">Attendance</a>
             <a href="pending_approvals.php" class="<?php echo ($current_page == 'pending_approvals.php') ? 'active' : ''; ?>">
                 <span>Approvals</span>
                 <?php if($sidebar_pending_count > 0): ?>
