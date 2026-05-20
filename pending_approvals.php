@@ -42,10 +42,17 @@ if (isset($_POST['action']) && isset($_POST['target_user_id'])) {
 }
 
 // ---------------------------------------------------------
-// LOGIC: Fetch all students who are currently 'Pending'
+// LOGIC: Fetch Data
 // ---------------------------------------------------------
 $pending_query = "SELECT user_id, name, email, phone FROM `USER` WHERE account_status = 'Pending'";
 $result = $conn->query($pending_query);
+
+// Fetch pending count for sidebar badge
+$sidebar_pending_count = 0;
+$sidebar_stmt = $conn->query("SELECT COUNT(*) AS total FROM `USER` WHERE account_status = 'Pending'");
+if($sidebar_stmt) {
+    $sidebar_pending_count = $sidebar_stmt->fetch_assoc()['total'];
+}
 ?>
 
 <!DOCTYPE html>
@@ -58,8 +65,27 @@ $result = $conn->query($pending_query);
     <style>
         /* Global Reset */
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
-        
-        /* Layout wrapper for the center card */
+        body { display: flex; background: #e2e8f0; min-height: 100vh; margin: 0; }
+
+        /* Sidebar Styles (Embedded directly!) */
+        .sidebar { 
+            width: 260px; background-color: #1a202c; color: white; display: flex; flex-direction: column; 
+            padding: 30px 20px; position: fixed; height: 100vh; box-shadow: 4px 0 10px rgba(0,0,0,0.1); 
+            z-index: 1000; top: 0; left: 0; box-sizing: border-box; 
+        }
+        .sidebar-brand { font-size: 20px; font-weight: 700; margin-bottom: 40px; color: #fff; text-align: center; }
+        .nav-links-sidebar { display: flex; flex-direction: column; gap: 15px; flex-grow: 1; }
+        .nav-links-sidebar a { 
+            text-decoration: none; color: #a0aec0; font-weight: 600; padding: 12px 15px; 
+            border-radius: 8px; transition: 0.3s; display: flex; align-items: center; justify-content: space-between; font-size: 15px; 
+        }
+        .nav-links-sidebar a:hover, .nav-links-sidebar a.active { background-color: #2d3748; color: white; }
+        .badge-sidebar { background: #e53e3e; color: white; border-radius: 12px; padding: 2px 8px; font-size: 12px; font-weight: bold; }
+        .btn-logout-sidebar { background-color: #e53e3e; color: white; text-align: center; text-decoration: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: auto; transition: 0.2s; }
+        .btn-logout-sidebar:hover { background-color: #c53030; }
+
+        /* Main Content Layout */
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; width: calc(100% - 260px); box-sizing: border-box; }
         .content-wrapper { display: flex; justify-content: center; width: 100%; align-items: flex-start; }
         
         /* Card Styling */
@@ -84,7 +110,20 @@ $result = $conn->query($pending_query);
 </head>
 <body>
 
-    <?php include 'admin_sidebar.php'; ?>
+    <div class="sidebar">
+        <div class="sidebar-brand">FK Club Admin</div>
+        <div class="nav-links-sidebar">
+            <a href="admin_dashboard.php">Dashboard</a>
+            <a href="admin_qr_dashboard.php">QR & Attendance</a>
+            <a href="pending_approvals.php" class="active">
+                <span>Approvals</span>
+                <?php if($sidebar_pending_count > 0): ?>
+                    <span class="badge-sidebar"><?php echo $sidebar_pending_count; ?></span>
+                <?php endif; ?>
+            </a>
+        </div>
+        <a href="logout.php" class="btn-logout-sidebar">Logout</a>
+    </div>
 
     <div class="main-content">
         <div class="content-wrapper">
