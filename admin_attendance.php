@@ -59,7 +59,17 @@ $current_page = basename($_SERVER['PHP_SELF']);
             padding: 30px 20px; position: fixed; height: 100vh; box-shadow: 4px 0 10px rgba(0,0,0,0.1); 
             z-index: 1000; top: 0; left: 0; box-sizing: border-box; 
         }
-        .sidebar-brand { font-size: 20px; font-weight: 700; margin-bottom: 40px; color: #fff; text-align: center; }
+        
+        /* NEW Sidebar Header Styles */
+        .sidebar-header { text-align: center; margin-bottom: 35px; }
+        .sidebar-logo { max-width: 85px; margin-bottom: 12px; display: inline-block; }
+        .sidebar-brand { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 6px; }
+        .sidebar-role { 
+            font-size: 11px; font-weight: 700; color: #a0aec0; text-transform: uppercase; 
+            letter-spacing: 1.5px; background: rgba(255,255,255,0.1); 
+            padding: 4px 12px; border-radius: 20px; display: inline-block; 
+        }
+
         .nav-links-sidebar { display: flex; flex-direction: column; gap: 15px; flex-grow: 1; }
         .nav-links-sidebar a { 
             text-decoration: none; color: #a0aec0; font-weight: 600; padding: 12px 15px; 

@@ -3,11 +3,9 @@ session_start();
 require 'db_connect.php'; 
 
 if (isset($_POST['login_btn'])) {
-    // CHANGED: Grab user_id instead of email
     $user_id_input = $_POST['user_id'];
     $password = $_POST['password'];
 
-    // CHANGED: Query searches by user_id instead of email
     $sql = "SELECT * FROM `USER` WHERE user_id = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("s", $user_id_input);
@@ -46,7 +44,6 @@ if (isset($_POST['login_btn'])) {
             echo "<script>alert('Incorrect Password!'); window.location.href='index.php';</script>";
         }
     } else {
-        // CHANGED: Alert text updated to reflect Matrix ID
         echo "<script>alert('Matrix ID not found!'); window.location.href='index.php';</script>";
     }
 } else {
