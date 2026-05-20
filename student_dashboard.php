@@ -87,8 +87,12 @@ $clubs_result = $conn->query($clubs_sql);
             <div class="sidebar-role"><?php echo htmlspecialchars($_SESSION['role']); ?> Dashboard</div>
         </div>
         <div class="nav-links">
-            <a href="student_dashboard.php" class="active">Dashboard</a>
+            <a href="student_dashboard.php">Dashboard</a>
             <a href="student_profile.php">My Profile</a>
+            <a href="student_browse_clubs.php">Browse Clubs</a>
+            <a href="student_event_registration.php">Event Registration</a>
+            <a href="student_point_recognition.php">Point Recognition</a>
+            <a href="student_leaderboard.php">Leaderboard</a>
         </div>
         <a href="logout.php" class="btn-logout">Logout</a>
     </div>
