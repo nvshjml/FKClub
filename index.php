@@ -124,6 +124,19 @@ session_start();
         .register-link:hover {
             text-decoration: underline;
         }
+
+        /* Alert notification styles */
+        .alert {
+            padding: 12px 15px;
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            text-align: center;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -135,27 +148,28 @@ session_start();
         </div>
         
         <div class="card-body">
+            <?php if (isset($_GET['status']) && $_GET['status'] === 'logged_out'): ?>
+                <div class="alert">
+                    🔒 Session has ended. Please login again.
+                </div>
+            <?php endif; ?>
+
             <p class="instruction">Enter credentials to access dashboard</p>
             
-            <!-- Changed action back to your processing script -->
             <form action="login_process.php" method="POST">
                 <div class="form-group">
                     <label>Student ID / Username</label>
-                    <!-- Added name="email" so your old backend still recognizes it -->
                     <input type="text" name="email" class="form-control" placeholder="e.g., CB24060" required>
                 </div>
                 
                 <div class="form-group">
                     <label>Password</label>
-                    <!-- Added name="password" -->
                     <input type="password" name="password" class="form-control" placeholder="••••••••" required>
                 </div>
                 
-                <!-- Added name="login_btn" -->
                 <button type="submit" name="login_btn" class="btn-primary">Login</button>
             </form>
             
-            <!-- Kept your old registration link but styled to match the new UI -->
             <a href="public_register.php" class="register-link">Create an Account</a>
         </div>
     </div>
