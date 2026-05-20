@@ -9,6 +9,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] == 1) {
 
 $user_id = $_SESSION['user_id'];
 $message = "";
+$show_form = false; // UX Magic: Keeps form open if they just clicked save
 
 // ---------------------------------------------------------
 // 1. HANDLE PROFILE UPDATE
@@ -16,6 +17,7 @@ $message = "";
 if (isset($_POST['update_btn'])) {
     $new_phone = $_POST['phone'];
     $new_password = $_POST['password'];
+    $show_form = true; // They submitted the form, so keep it visible!
     
     // Check if they typed a new password
     if (!empty($new_password)) {
@@ -45,7 +47,7 @@ $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $user_data = $stmt->get_result()->fetch_assoc();
 
-// Get Initials for Avatar (e.g., "Ajmal Hashim" -> "AH")
+// Get Initials for Avatar
 $words = explode(" ", $user_data['name']);
 $initials = strtoupper(substr($words[0], 0, 1) . (isset($words[1]) ? substr($words[1], 0, 1) : ''));
 
@@ -80,16 +82,15 @@ $comm_result = $stmt_comm->get_result();
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); min-height: 100vh; padding: 40px 20px; color: #333; }
         
-        /* Two Column Layout */
+        /* 1. CSS UPDATE: Single Column Layout */
         .profile-wrapper {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            max-width: 1000px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 600px; /* Thinner container for single stack */
             margin: 0 auto;
         }
 
-        /* Glassmorphism Cards */
         .card {
             background-color: rgba(255, 255, 255, 0.95);
             padding: 35px;
@@ -99,22 +100,15 @@ $comm_result = $stmt_comm->get_result();
         }
 
         .card-header {
-            font-size: 18px;
-            font-weight: 700;
-            color: #1a202c;
-            margin-bottom: 25px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border-bottom: 2px solid #edf2f7;
-            padding-bottom: 15px;
+            font-size: 18px; font-weight: 700; color: #1a202c;
+            margin-bottom: 25px; display: flex; align-items: center; gap: 10px;
+            border-bottom: 2px solid #edf2f7; padding-bottom: 15px;
         }
 
-        /* --- Left Side: Profile Info --- */
+        /* --- Profile Info --- */
         .user-intro { display: flex; align-items: center; gap: 20px; margin-bottom: 30px; }
         .avatar {
-            width: 70px; height: 70px;
-            background: #e2e8f0; color: #2b6cb0;
+            width: 70px; height: 70px; background: #e2e8f0; color: #2b6cb0;
             border-radius: 50%; display: flex; justify-content: center; align-items: center;
             font-size: 24px; font-weight: 700; border: 3px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
@@ -126,13 +120,20 @@ $comm_result = $stmt_comm->get_result();
             padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 8px; border: 1px solid #bee3f8;
         }
 
-        .info-list { list-style: none; }
+        .info-list { list-style: none; margin-bottom: 25px; }
         .info-list li { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #edf2f7; font-size: 14px; }
-        .info-list li:last-child { border-bottom: none; }
         .info-label { color: #718096; font-weight: 500; }
         .info-value { color: #2d3748; font-weight: 600; text-align: right; max-width: 60%; }
 
-        /* --- Right Side: Edit Form --- */
+        /* 2. HTML UPDATE: The Toggle Button Styling */
+        .btn-toggle {
+            width: 100%; padding: 14px; background: #edf2f7; color: #4a5568;
+            border: 2px dashed #cbd5e0; border-radius: 8px; font-weight: 600; font-size: 15px;
+            cursor: pointer; transition: 0.2s;
+        }
+        .btn-toggle:hover { background: #e2e8f0; border-color: #a0aec0; color: #2d3748; }
+
+        /* --- Edit Form Details --- */
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; color: #4a5568; font-weight: 600; font-size: 14px; }
         input {
@@ -152,13 +153,18 @@ $comm_result = $stmt_comm->get_result();
         .alert-success { background-color: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
         .alert-error { background-color: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
         
-        .top-nav { max-width: 1000px; margin: 0 auto 20px auto; }
+        .top-nav { max-width: 600px; margin: 0 auto 20px auto; }
         .btn-back { color: #4a5568; text-decoration: none; font-weight: 600; font-size: 15px; transition: 0.2s; }
         .btn-back:hover { color: #2b6cb0; }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .profile-wrapper { grid-template-columns: 1fr; }
+        
+        /* 3. CSS UPDATE: Hide the Form by default with a smooth animation */
+        #editFormCard {
+            /* Handled by inline PHP style, but animation goes here */
+            animation: slideDown 0.3s ease-out forwards;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
@@ -168,7 +174,7 @@ $comm_result = $stmt_comm->get_result();
         <a href="student_dashboard.php" class="btn-back">← Back to Dashboard</a>
     </div>
 
-    <?php if($message) echo "<div style='max-width: 1000px; margin: 0 auto;'>$message</div>"; ?>
+    <?php if($message) echo "<div style='max-width: 600px; margin: 0 auto;'>$message</div>"; ?>
 
     <div class="profile-wrapper">
         
@@ -192,27 +198,17 @@ $comm_result = $stmt_comm->get_result();
             </div>
 
             <ul class="info-list">
-                <li>
-                    <span class="info-label">Email</span>
-                    <span class="info-value"><?php echo htmlspecialchars($user_data['email']); ?></span>
-                </li>
-                <li>
-                    <span class="info-label">Phone</span>
-                    <span class="info-value"><?php echo htmlspecialchars($user_data['phone']); ?></span>
-                </li>
-                <li>
-                    <span class="info-label">Total Points</span>
-                    <span class="info-value" style="color: #38a169;"><?php echo htmlspecialchars($user_data['total_point']); ?></span>
-                </li>
-                <li>
-                    <span class="info-label">Clubs Joined</span>
-                    <span class="info-value"><?php echo htmlspecialchars($clubs_string); ?></span>
-                </li>
+                <li><span class="info-label">Email</span><span class="info-value"><?php echo htmlspecialchars($user_data['email']); ?></span></li>
+                <li><span class="info-label">Phone</span><span class="info-value"><?php echo htmlspecialchars($user_data['phone']); ?></span></li>
+                <li><span class="info-label">Total Points</span><span class="info-value" style="color: #38a169;"><?php echo htmlspecialchars($user_data['total_point']); ?></span></li>
+                <li><span class="info-label">Clubs Joined</span><span class="info-value"><?php echo htmlspecialchars($clubs_string); ?></span></li>
             </ul>
+
+            <button class="btn-toggle" onclick="toggleEditForm()">✏️ Edit Profile</button>
         </div>
 
-        <div class="card">
-            <div class="card-header">✏️ Edit Profile</div>
+        <div class="card" id="editFormCard" style="display: <?php echo $show_form ? 'block' : 'none'; ?>;">
+            <div class="card-header">✏️ Edit Profile Info</div>
             
             <form action="student_profile.php" method="POST">
                 <div class="form-group">
@@ -230,6 +226,17 @@ $comm_result = $stmt_comm->get_result();
         </div>
 
     </div>
+
+    <script>
+        function toggleEditForm() {
+            var formCard = document.getElementById("editFormCard");
+            if (formCard.style.display === "none" || formCard.style.display === "") {
+                formCard.style.display = "block";
+            } else {
+                formCard.style.display = "none";
+            }
+        }
+    </script>
 
 </body>
 </html>
