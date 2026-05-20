@@ -113,7 +113,7 @@ if ($club_id) {
             <div class="sidebar-role"><?php echo htmlspecialchars($_SESSION['role']); ?> Dashboard</div>
         </div>
         <div class="nav-links">
-            <a href="committee_dashboard.php" class="active">Dashboard</a>
+            <a href="committee_dashboard.php">Dashboard</a>
             <a href="committee_profile.php">My Profile</a>
             <a href="committee_club_details.php">Club Details</a>
             <a href="committee_events.php">Manage Events</a>

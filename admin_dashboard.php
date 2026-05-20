@@ -118,7 +118,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <div class="sidebar-role"><?php echo htmlspecialchars($_SESSION['role']); ?> Dashboard</div>
         </div>
         <div class="nav-links-sidebar">
-            <a href="admin_dashboard.php" class="<?php echo ($current_page == 'admin_dashboard.php') ? 'active' : ''; ?>">Dashboard</a>
+            <a href="admin_dashboard.php">Dashboard</a>
             <a href="admin_attendance.php">Attendance</a>
             <a href="pending_approvals.php">
                 <span>Approvals</span>
