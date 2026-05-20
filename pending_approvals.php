@@ -3,7 +3,7 @@ session_start();
 require 'db_connect.php';
 
 // SECURITY CHECK: Only Admins (role_id 1) can access this page!
-if (!isset($_SESSION['user_id']) || $_SESSION['role_id'] != 1) {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 1) {
     header("Location: index.php");
     exit();
 }

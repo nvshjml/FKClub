@@ -10,7 +10,7 @@ if (isset($_POST['login_btn'])) {
     $password = $_POST['password'];
 
     // SQL Query to find the user by email
-    $sql = "SELECT * FROM USER WHERE email = ?";
+    $sql = "SELECT * FROM `USER` WHERE email = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("s", $email);
     $stmt->execute();
@@ -35,12 +35,12 @@ if (isset($_POST['login_btn'])) {
             // Success! Save their details in the Session memory
             
             // Success! Save their details in the Session memory
-            $_SESSION['user_id'] = $user['user_id'];
-            $_SESSION['role_id'] = $user['role_id'];
+            $_SESSION['user_id'] = $user['user_id'];  // <-- Fixed this line!
+            $_SESSION['role'] = $user['role'];
             $_SESSION['name'] = $user['name'];
 
             // Route them to the correct dashboard based on their role
-            if ($user['role_id'] == 1) {
+            if ($user['role'] == 1) {
                 // It's an Admin
                 header("Location: admin_dashboard.php");
                 exit();
