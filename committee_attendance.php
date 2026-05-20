@@ -109,8 +109,11 @@ if (isset($_POST['save_attendance'])) {
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { display: flex; background: #e2e8f0; }
         
-        .sidebar { width: 260px; background-color: #1a202c; color: white; display: flex; flex-direction: column; padding: 30px 20px; position: fixed; height: 100vh; }
-        .sidebar-brand { font-size: 20px; font-weight: 700; margin-bottom: 40px; text-align: center; }
+        .sidebar { width: 260px; background-color: #1a202c; color: white; display: flex; flex-direction: column; padding: 30px 20px; position: fixed; height: 100vh; box-shadow: 4px 0 10px rgba(0,0,0,0.1); z-index: 1000; top: 0; left: 0;}
+        .sidebar-header { text-align: center; margin-bottom: 35px; }
+        .sidebar-logo { max-width: 85px; margin-bottom: 12px; display: inline-block; }
+        .sidebar-brand { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 6px; }
+        .sidebar-role { font-size: 11px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 1.5px; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; display: inline-block; }
         .nav-links { display: flex; flex-direction: column; gap: 15px; flex-grow: 1; }
         .nav-links a { text-decoration: none; color: #a0aec0; font-weight: 600; padding: 12px 15px; border-radius: 8px; display: block; }
         .nav-links a:hover, .nav-links a.active { background-color: #2d3748; color: white; }
@@ -143,7 +146,11 @@ if (isset($_POST['save_attendance'])) {
 <body>
 
 <div class="sidebar">
-    <div class="sidebar-brand">FK Club System</div>
+    <div class="sidebar-header">
+            <img src="image/LogoUMP5.png" alt="UMPSA Logo" class="sidebar-logo">
+            <div class="sidebar-brand">FK Club System</div>
+            <div class="sidebar-role"><?php echo htmlspecialchars($_SESSION['role']); ?> Dashboard</div>
+    </div>
     <div class="nav-links">
         <a href="committee_dashboard.php">Dashboard</a>
         <a href="committee_profile.php">My Profile</a>

@@ -154,6 +154,10 @@ $comm_result = $stmt_comm->get_result();
             <?php else: ?>
                 <a href="student_dashboard.php">Dashboard</a>
                 <a href="student_profile.php" class="active">My Profile</a>
+                <a href="student_browse_clubs.php">Browse Clubs</a>
+                <a href="student_event_registration.php">Event Registration</a>
+                <a href="student_point_recognition.php">Point Recognition</a>
+                <a href="student_leaderboard.php">Leaderboard</a>
             <?php endif; ?>
         </div>
         <a href="logout.php" class="btn-logout">Logout</a>
