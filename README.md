@@ -1,2 +1,0 @@
-# FKClub
-Web Engineering Project
