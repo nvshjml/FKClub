@@ -1,7 +1,6 @@
 <?php
 session_start();
 require 'db_connect.php';
-require 'session_timeout.php';
 
 // SECURITY CHECK
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] == 'Admin') {
@@ -26,7 +25,7 @@ if (isset($_POST['register_btn']) && isset($_POST['event_id'])) {
     if ($check_stmt->get_result()->num_rows > 0) {
         $message = "<div class='alert alert-error'>⚠️ You are already registered for this event!</div>";
     } else {
-        // Check event capacity - handle missing max_participants column
+        // Check event capacity
         $capacity_sql = "SELECT e.*, 
                                 (SELECT COUNT(*) FROM EVENT_REGISTRATION er WHERE er.event_id = e.event_id AND er.status != 'Cancelled') as registered_count
                          FROM EVENT e WHERE e.event_id = ?";
@@ -35,14 +34,13 @@ if (isset($_POST['register_btn']) && isset($_POST['event_id'])) {
         $capacity_stmt->execute();
         $capacity_result = $capacity_stmt->get_result()->fetch_assoc();
         
-        // Set default max_participants if column doesn't exist
-        $max_participants = isset($capacity_result['max_participants']) && $capacity_result['max_participants'] ? $capacity_result['max_participants'] : 100;
+        // FIXED: Using max_cap instead of max_participants
+        $max_cap = isset($capacity_result['max_cap']) && $capacity_result['max_cap'] ? $capacity_result['max_cap'] : 100;
         $registered_count = $capacity_result['registered_count'] ?: 0;
         
-        if ($registered_count >= $max_participants) {
-            $message = "<div class='alert alert-error'>❌ Sorry! This event is already full. (Max: {$max_participants} participants)</div>";
+        if ($registered_count >= $max_cap) {
+            $message = "<div class='alert alert-error'>❌ Sorry! This event is already full. (Max: {$max_cap} participants)</div>";
         } else {
-            // Register for event
             $register_sql = "INSERT INTO EVENT_REGISTRATION (user_id, event_id, registration_date, status) VALUES (?, ?, NOW(), 'Registered')";
             $register_stmt = $conn->prepare($register_sql);
             $register_stmt->bind_param("si", $user_id, $event_id);
@@ -71,7 +69,7 @@ if (isset($_GET['cancel']) && isset($_GET['event_id'])) {
     }
 }
 
-// Fetch available events (upcoming, not registered yet)
+// Fetch available events (upcoming)
 $available_events_sql = "
     SELECT e.*, 
            (SELECT COUNT(*) FROM EVENT_REGISTRATION er WHERE er.event_id = e.event_id AND er.status != 'Cancelled') as registered_count,
@@ -87,8 +85,9 @@ $stmt->execute();
 $available_events = $stmt->get_result();
 
 // Fetch user's registration history
+// FIXED: Using max_cap instead of max_participants here too!
 $history_sql = "
-    SELECT er.*, e.event_name, e.date, e.time, e.venue, e.max_participants, c.club_name,
+    SELECT er.*, e.event_name, e.date, e.time, e.venue, e.max_cap, c.club_name,
            DATEDIFF(e.date, CURDATE()) as days_until
     FROM EVENT_REGISTRATION er
     JOIN EVENT e ON er.event_id = e.event_id
@@ -101,7 +100,6 @@ $stmt->bind_param("s", $user_id);
 $stmt->execute();
 $registration_history = $stmt->get_result();
 
-// Get registered count for stats
 $registered_count = $registration_history->num_rows;
 $available_count = $available_events->num_rows;
 ?>
@@ -111,23 +109,13 @@ $available_count = $available_events->num_rows;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event Registration - Student Dashboard</title>
+    <title>Event Registration</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { display: flex; background: #e2e8f0; min-height: 100vh; color: #333; }
         
-        .sidebar { width: 260px; background-color: #1a202c; color: white; display: flex; flex-direction: column; padding: 30px 20px; position: fixed; height: 100vh; box-shadow: 4px 0 10px rgba(0,0,0,0.1); z-index: 1000; top: 0; left: 0;}
-        .sidebar-header { text-align: center; margin-bottom: 35px; }
-        .sidebar-logo { max-width: 85px; margin-bottom: 12px; display: inline-block; }
-        .sidebar-brand { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 6px; }
-        .sidebar-role { font-size: 11px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 1.5px; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; display: inline-block; }
-        .nav-links { display: flex; flex-direction: column; gap: 15px; flex-grow: 1; }
-        .nav-links a { text-decoration: none; color: #a0aec0; font-weight: 600; padding: 12px 15px; border-radius: 8px; transition: 0.3s; display: block; }
-        .nav-links a:hover, .nav-links a.active { background-color: #2d3748; color: white; }
-        .btn-logout { background-color: #e53e3e; color: white; text-align: center; text-decoration: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: auto; transition: 0.2s; }
-
-        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; max-width: calc(100% - 260px); }
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; max-width: calc(100% - 260px); width: calc(100% - 260px); }
         .welcome-card { background-color: white; padding: 25px 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; border-left: 6px solid #38a169; }
         .welcome-card h2 { color: #1a202c; margin-bottom: 5px; }
         
@@ -161,7 +149,6 @@ $available_count = $available_events->num_rows;
         .data-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .data-table th { background: #f8fafc; padding: 15px; text-align: left; font-weight: 600; color: #4a5568; border-bottom: 2px solid #e2e8f0; }
         .data-table td { padding: 12px 15px; border-bottom: 1px solid #edf2f7; color: #2d3748; }
-        .data-table tr:last-child td { border-bottom: none; }
         .data-table tr:hover { background: #f8fafc; }
         
         .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
@@ -174,33 +161,12 @@ $available_count = $available_events->num_rows;
         .alert-error { background-color: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
         
         .empty-state { text-align: center; padding: 40px; background: white; border-radius: 12px; color: #718096; }
-        
         .btn-sm { padding: 6px 12px; font-size: 12px; margin-top: 0; display: inline-block; width: auto; }
-        
-        @media (max-width: 768px) {
-            .sidebar { width: 200px; }
-            .main-content { margin-left: 200px; width: calc(100% - 200px); }
-        }
     </style>
 </head>
 <body>
 
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <img src="image/LogoUMP5.png" alt="UMPSA Logo" class="sidebar-logo">
-            <div class="sidebar-brand">FK Club System</div>
-            <div class="sidebar-role"><?php echo htmlspecialchars($_SESSION['role']); ?> Dashboard</div>
-        </div>
-        <div class="nav-links">
-            <a href="student_dashboard.php">Dashboard</a>
-            <a href="student_profile.php">My Profile</a>
-            <a href="student_browse_clubs.php">Browse Clubs</a>
-            <a href="student_event_registration.php" class="active">Event Registration</a>
-            <a href="student_point_recognition.php">Point Recognition</a>
-            <a href="student_leaderboard.php">Leaderboard</a>
-        </div>
-        <a href="logout.php" class="btn-logout">Logout</a>
-    </div>
+    <?php include 'sidebar.php'; ?>
 
     <div class="main-content">
         
@@ -211,7 +177,6 @@ $available_count = $available_events->num_rows;
             <p style="color: #718096;">Browse upcoming events, register to participate, and track your registration history.</p>
         </div>
 
-        <!-- Stats Summary -->
         <div class="stats-grid">
             <div class="stat-card" style="border-bottom: 4px solid #3182ce;">
                 <h3>Available Events</h3>
@@ -223,17 +188,16 @@ $available_count = $available_events->num_rows;
             </div>
         </div>
 
-        <!-- Available Events Section -->
         <h2 class="section-title">🎯 Available Events for Registration</h2>
         
         <div class="grid-container">
             <?php if ($available_events && $available_events->num_rows > 0): ?>
                 <?php while($event = $available_events->fetch_assoc()): 
-                    // Handle max_participants safely (default 100 if column doesn't exist)
-                    $max_participants = isset($event['max_participants']) && $event['max_participants'] ? $event['max_participants'] : 100;
+                    // FIXED: Using max_cap instead of max_participants
+                    $max_cap = isset($event['max_cap']) && $event['max_cap'] ? $event['max_cap'] : 100;
                     $registered_count_event = isset($event['registered_count']) ? $event['registered_count'] : 0;
-                    $percentage = ($registered_count_event / $max_participants) * 100;
-                    $is_full = $registered_count_event >= $max_participants;
+                    $percentage = ($registered_count_event / $max_cap) * 100;
+                    $is_full = $registered_count_event >= $max_cap;
                     $is_registered = isset($event['is_registered']) ? $event['is_registered'] : 0;
                 ?>
                     <div class="item-card">
@@ -249,8 +213,8 @@ $available_count = $available_events->num_rows;
                                     <div class="fill" style="width: <?php echo min($percentage, 100); ?>%"></div>
                                 </div>
                                 <div class="capacity-text">
-                                    👥 <strong><?php echo $registered_count_event; ?></strong> / <?php echo $max_participants; ?> registered
-                                    <?php echo $is_full ? ' (FULL)' : ' (' . ($max_participants - $registered_count_event) . ' slots left)'; ?>
+                                    👥 <strong><?php echo $registered_count_event; ?></strong> / <?php echo $max_cap; ?> registered
+                                    <?php echo $is_full ? ' (FULL)' : ' (' . ($max_cap - $registered_count_event) . ' slots left)'; ?>
                                 </div>
                             </div>
                             
@@ -268,13 +232,12 @@ $available_count = $available_events->num_rows;
                     </div>
                 <?php endwhile; ?>
             <?php else: ?>
-                <div class="empty-state">
+                <div class="empty-state" style="grid-column: 1/-1;">
                     <p>No upcoming events available for registration at the moment.</p>
                 </div>
             <?php endif; ?>
         </div>
 
-        <!-- Registration History Section -->
         <h2 class="section-title">📋 My Registration History</h2>
         
         <div class="table-container">
