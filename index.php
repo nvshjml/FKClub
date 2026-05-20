@@ -157,8 +157,8 @@ session_start();
             
             <form action="login_process.php" method="POST">
                 <div class="form-group">
-                    <label>University Email</label>
-                    <input type="text" name="email" class="form-control" placeholder="e.g., cb26001@siswa.edu" required>
+                    <label>Matrix ID</label>
+                    <input type="text" name="user_id" class="form-control" placeholder="e.g., CB26001" required>
                 </div>
                 
                 <div class="form-group">

@@ -1,7 +1,7 @@
 <?php
 // Set the timeout duration in seconds. 
 // 1800 seconds = 30 minutes. (Change this number if you want a longer/shorter timeout)
-$timeout_duration = 5;
+$timeout_duration = 1800;
 
 // Check if the "LAST_ACTIVITY" timestamp exists in the session
 if (isset($_SESSION['LAST_ACTIVITY'])) {

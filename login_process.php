@@ -3,12 +3,14 @@ session_start();
 require 'db_connect.php'; 
 
 if (isset($_POST['login_btn'])) {
-    $email = $_POST['email'];
+    // CHANGED: Grab user_id instead of email
+    $user_id_input = $_POST['user_id'];
     $password = $_POST['password'];
 
-    $sql = "SELECT * FROM `USER` WHERE email = ?";
+    // CHANGED: Query searches by user_id instead of email
+    $sql = "SELECT * FROM `USER` WHERE user_id = ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $email);
+    $stmt->bind_param("s", $user_id_input);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -29,7 +31,6 @@ if (isset($_POST['login_btn'])) {
             $_SESSION['role'] = $user['role'];
             $_SESSION['name'] = $user['name'];
 
-            // FIXED: Added Committee redirect
             if ($user['role'] == 'Admin') {
                 header("Location: admin_dashboard.php");
                 exit();
@@ -45,7 +46,8 @@ if (isset($_POST['login_btn'])) {
             echo "<script>alert('Incorrect Password!'); window.location.href='index.php';</script>";
         }
     } else {
-        echo "<script>alert('Email not found!'); window.location.href='index.php';</script>";
+        // CHANGED: Alert text updated to reflect Matrix ID
+        echo "<script>alert('Matrix ID not found!'); window.location.href='index.php';</script>";
     }
 } else {
     header("Location: index.php");
