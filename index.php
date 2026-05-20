@@ -18,7 +18,7 @@ session_start();
         }
 
         body {
-            /* Simulates the blurred campus background from your references */
+            /* Simulates the blurred campus background */
             background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') no-repeat center center/cover;
             backdrop-filter: blur(5px);
             height: 100vh;
@@ -89,14 +89,14 @@ session_start();
 
         .form-control:focus {
             outline: none;
-            border-color: #0d6efd; /* UMPSA Blue */
+            border-color: #0d6efd; 
             background-color: #fff;
         }
 
         .btn-primary {
             width: 100%;
             padding: 12px;
-            background-color: #0d6efd; /* UMPSA Blue */
+            background-color: #0d6efd; 
             color: white;
             border: none;
             border-radius: 6px;
@@ -125,7 +125,6 @@ session_start();
             text-decoration: underline;
         }
 
-        /* Alert notification styles */
         .alert {
             padding: 12px 15px;
             background-color: #fff3cd;
@@ -158,8 +157,8 @@ session_start();
             
             <form action="login_process.php" method="POST">
                 <div class="form-group">
-                    <label>Student ID / Username</label>
-                    <input type="text" name="email" class="form-control" placeholder="e.g., CB24060" required>
+                    <label>University Email</label>
+                    <input type="text" name="email" class="form-control" placeholder="e.g., cb26001@siswa.edu" required>
                 </div>
                 
                 <div class="form-group">

@@ -2,8 +2,8 @@
 session_start();
 require 'db_connect.php';
 
-// SECURITY CHECK: Only Admins (role_id 1) can access this page!
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 1) {
+// SECURITY CHECK: Only Admins can access this page!
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
     header("Location: index.php");
     exit();
 }
@@ -18,21 +18,19 @@ if (isset($_POST['action']) && isset($_POST['target_user_id'])) {
     $action = $_POST['action'];
 
     if ($action == 'approve') {
-        // Update database to Approved
         $sql = "UPDATE `USER` SET account_status = 'Approved' WHERE user_id = ?";
         $msg_text = "Student successfully Approved!";
         $msg_color = "green";
     } elseif ($action == 'reject') {
-        // Update database to Rejected
         $sql = "UPDATE `USER` SET account_status = 'Rejected' WHERE user_id = ?";
         $msg_text = "Student has been Rejected.";
         $msg_color = "red";
     }
 
-    // Execute the update
     $stmt = $conn->prepare($sql);
     if ($stmt) {
-        $stmt->bind_param("i", $target_id);
+        // FIXED: Binding parameter 's' because Matrix ID is a string!
+        $stmt->bind_param("s", $target_id);
         if ($stmt->execute()) {
             $message = "<div style='color: $msg_color; background-color: #f8f9fa; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-weight: bold;'>✅ $msg_text</div>";
         }
@@ -60,13 +58,11 @@ $result = $conn->query($pending_query);
         .container { display: flex; justify-content: center; padding: 40px; }
         .card { background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 100%; max-width: 800px; }
         
-        /* Table Styling */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
         th { background-color: #f8f9fa; color: #333; }
         tr:hover { background-color: #f1f1f1; }
         
-        /* Button Styling */
         form { display: inline; }
         .btn-approve { background-color: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px; }
         .btn-approve:hover { background-color: #218838; }
