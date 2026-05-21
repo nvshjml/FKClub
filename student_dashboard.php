@@ -87,7 +87,7 @@ $clubs_result = $conn->query($clubs_sql);
             <div class="sidebar-role"><?php echo htmlspecialchars($_SESSION['role']); ?> Dashboard</div>
         </div>
         <div class="nav-links">
-            <a href="student_dashboard.php">Dashboard</a>
+            <a href="student_dashboard.php" class="active">Dashboard</a>
             <a href="student_profile.php">My Profile</a>
             <a href="student_browse_clubs.php">Browse Clubs</a>
             <a href="student_event_registration.php">Event Registration</a>
@@ -104,11 +104,18 @@ $clubs_result = $conn->query($clubs_sql);
         </div>
 
         <div class="stats-grid">
-            <?php if ($_SESSION['role'] == 'Student'): ?>
-                <div class="stat-card" style="border-bottom: 4px solid #3182ce;"><h3>Total Points</h3><div class="number"><?php echo $total_points; ?></div></div>
-            <?php endif; ?>
-            <div class="stat-card" style="border-bottom: 4px solid #38a169;"><h3>Clubs Joined</h3><div class="number"><?php echo $total_clubs; ?> / 3</div></div>
-            <div class="stat-card" style="border-bottom: 4px solid #805ad5;"><h3>Events Registered</h3><div class="number"><?php echo $total_events; ?></div></div>
+            <div class="stat-card" style="border-bottom: 4px solid #3182ce;">
+                <h3>Total Points</h3>
+                <div class="number"><?php echo $total_points; ?></div>
+            </div>
+            <div class="stat-card" style="border-bottom: 4px solid #38a169;">
+                <h3>Clubs Joined</h3>
+                <div class="number"><?php echo $total_clubs; ?> / 3</div>
+            </div>
+            <div class="stat-card" style="border-bottom: 4px solid #805ad5;">
+                <h3>Events Registered</h3>
+                <div class="number"><?php echo $total_events; ?></div>
+            </div>
         </div>
 
         <h2 class="section-title">📅 Upcoming Events</h2>
@@ -140,7 +147,7 @@ $clubs_result = $conn->query($clubs_sql);
                         <div class="item-content">
                             <div class="item-title"><?php echo htmlspecialchars($club['club_name']); ?></div>
                             <div class="item-detail">👤 <strong>President:</strong> <?php echo $club['president_name'] ? htmlspecialchars($club['president_name']) : 'TBD'; ?></div>
-                            <button class="btn-action" <?php echo ($total_clubs >= 3) ? 'disabled' : ''; ?>><?php echo ($total_clubs >= 3) ? 'Limit Reached' : 'Join Club'; ?></button>
+                            <a href="student_browse_clubs.php" class="btn-action">View & Join Clubs</a>
                         </div>
                     </div>
                 <?php endwhile; ?>
