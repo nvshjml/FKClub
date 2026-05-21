@@ -69,7 +69,7 @@ if (isset($_GET['leave']) && isset($_GET['club_id'])) {
     }
 }
 
-// Fetch all available clubs (active only) with president name and user's membership status
+// Fetch all available clubs (active only)
 $clubs_sql = "
     SELECT 
         c.club_id, 
@@ -97,23 +97,13 @@ $clubs_result = $stmt->get_result();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Browse Clubs - Student Dashboard</title>
+    <title>Browse Clubs</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { display: flex; background: #e2e8f0; min-height: 100vh; color: #333; }
         
-        .sidebar { width: 260px; background-color: #1a202c; color: white; display: flex; flex-direction: column; padding: 30px 20px; position: fixed; height: 100vh; box-shadow: 4px 0 10px rgba(0,0,0,0.1); z-index: 1000; top: 0; left: 0;}
-        .sidebar-header { text-align: center; margin-bottom: 35px; }
-        .sidebar-logo { max-width: 85px; margin-bottom: 12px; display: inline-block; }
-        .sidebar-brand { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 6px; }
-        .sidebar-role { font-size: 11px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 1.5px; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; display: inline-block; }
-        .nav-links { display: flex; flex-direction: column; gap: 15px; flex-grow: 1; }
-        .nav-links a { text-decoration: none; color: #a0aec0; font-weight: 600; padding: 12px 15px; border-radius: 8px; transition: 0.3s; display: block; }
-        .nav-links a:hover, .nav-links a.active { background-color: #2d3748; color: white; }
-        .btn-logout { background-color: #e53e3e; color: white; text-align: center; text-decoration: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: auto; transition: 0.2s; }
-
-        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; max-width: 1200px; }
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; max-width: 1200px; width: calc(100% - 260px); }
         .welcome-card { background-color: white; padding: 25px 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; border-left: 6px solid #38a169; }
         .welcome-card h2 { color: #1a202c; margin-bottom: 5px; }
         
@@ -127,7 +117,7 @@ $clubs_result = $stmt->get_result();
         
         .item-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.3s; }
         .item-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
-        .item-image { width: 100%; height: 180px; object-fit: cover; background: #edf2f7; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; text-align: center; padding: 20px; }
+        .item-image { width: 100%; height: 180px; object-fit: cover; background: #edf2f7; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; text-align: center; }
         .item-content { padding: 20px; }
         .item-title { font-size: 18px; font-weight: bold; color: #2d3748; margin-bottom: 10px; }
         .item-detail { font-size: 14px; color: #718096; margin-bottom: 5px; }
@@ -138,46 +128,11 @@ $clubs_result = $stmt->get_result();
         
         .btn-leave { background: #e53e3e; }
         .btn-leave:hover { background: #c53030; }
-        .btn-joined { background: #38a169; cursor: default; }
-        .btn-joined:hover { background: #38a169; }
-        
-        /* Club image text overlay style */
-        .club-image-text {
-            background: linear-gradient(135deg, #1a202c, #2d3748);
-            color: white;
-            font-size: 24px;
-            font-weight: 800;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-        }
-        .club-image-text small {
-            font-size: 14px;
-            font-weight: normal;
-            opacity: 0.8;
-        }
     </style>
 </head>
 <body>
 
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <img src="image/LogoUMP5.png" alt="UMPSA Logo" class="sidebar-logo">
-            <div class="sidebar-brand">FK Club System</div>
-            <div class="sidebar-role"><?php echo htmlspecialchars($_SESSION['role']); ?> Dashboard</div>
-        </div>
-        <div class="nav-links">
-            <a href="student_dashboard.php">Dashboard</a>
-            <a href="student_profile.php">My Profile</a>
-            <a href="student_browse_clubs.php" class="active">Browse Clubs</a>
-            <a href="student_event_registration.php">Event Registration</a>
-            <a href="student_point_recognition.php">Point Recognition</a>
-            <a href="student_leaderboard.php">Leaderboard</a>
-        </div>
-        <a href="logout.php" class="btn-logout">Logout</a>
-    </div>
+    <?php include 'sidebar.php'; ?>
 
     <div class="main-content">
         
@@ -205,37 +160,21 @@ $clubs_result = $stmt->get_result();
             <?php if ($clubs_result && $clubs_result->num_rows > 0): ?>
                 <?php while($club = $clubs_result->fetch_assoc()): ?>
                     <div class="item-card">
-                        <!-- Club Image - Custom images for specific clubs -->
                         <?php 
-                        // Check for specific club names and assign custom images
                         $club_name_lower = strtolower($club['club_name']);
-                        
-                        if (stripos($club['club_name'], 'AI') !== false || stripos($club['club_name'], 'Robotics') !== false):
-                            // AI & Robotics Society
-                            ?>
+                        if (stripos($club['club_name'], 'AI') !== false || stripos($club['club_name'], 'Robotics') !== false): ?>
                             <img src="image/roboticclub.jpg" class="item-image" alt="AI & Robotics Society">
-                        <?php elseif (stripos($club['club_name'], 'Competitive Programming') !== false || stripos($club['club_name'], 'Programming') !== false):
-                            // Competitive Programming Club
-                            ?>
+                        <?php elseif (stripos($club['club_name'], 'Competitive Programming') !== false || stripos($club['club_name'], 'Programming') !== false): ?>
                             <img src="image/programmingclub.png" class="item-image" alt="Competitive Programming Club">
-                        <?php elseif (stripos($club['club_name'], 'Data Science') !== false || stripos($club['club_name'], 'Analytics') !== false):
-                            // Data Science & Analytics Circle
-                            ?>
+                        <?php elseif (stripos($club['club_name'], 'Data Science') !== false || stripos($club['club_name'], 'Analytics') !== false): ?>
                             <img src="image/datascienceclub.jpg" class="item-image" alt="Data Science & Analytics Circle">
-                        <?php elseif (stripos($club['club_name'], 'Mobile App') !== false || stripos($club['club_name'], 'App Development') !== false):
-                            // Mobile App Innovation Hub
-                            ?>
+                        <?php elseif (stripos($club['club_name'], 'Mobile App') !== false || stripos($club['club_name'], 'App Development') !== false): ?>
                             <img src="image/mobileappclub.png" class="item-image" alt="Mobile App Innovation Hub">
-                        <?php elseif (stripos($club['club_name'], 'Web Development') !== false || stripos($club['club_name'], 'Web Dev') !== false):
-                            // Web Development Club
-                            ?>
+                        <?php elseif (stripos($club['club_name'], 'Web Development') !== false || stripos($club['club_name'], 'Web Dev') !== false): ?>
                             <img src="image/webdevclub.jpg" class="item-image" alt="Web Development Club">
-                        <?php elseif (stripos($club['club_name'], 'Cybersecurity') !== false || stripos($club['club_name'], 'Security') !== false):
-                            // Cybersecurity Club
-                            ?>
+                        <?php elseif (stripos($club['club_name'], 'Cybersecurity') !== false || stripos($club['club_name'], 'Security') !== false): ?>
                             <img src="image/cybersecurityclub.jpg" class="item-image" alt="Cybersecurity Club">
                         <?php else: ?>
-                            <!-- Default avatar for other clubs -->
                             <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($club['club_name']); ?>&background=random&size=300&bold=true" class="item-image" alt="Club Logo">
                         <?php endif; ?>
                         
@@ -269,8 +208,6 @@ $clubs_result = $stmt->get_result();
                 <p>No clubs available right now.</p>
             <?php endif; ?>
         </div>
-        
     </div>
-
 </body>
 </html>

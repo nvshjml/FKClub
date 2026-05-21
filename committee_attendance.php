@@ -1,8 +1,8 @@
 <?php
 session_start();
 require 'db_connect.php';
-require 'session_timeout.php';
 
+// SECURITY CHECK
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Committee') {
     header("Location: index.php");
     exit();
@@ -10,117 +10,77 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Committee') {
 
 $user_id = $_SESSION['user_id'];
 $message = "";
-$edit_event = null;
 
-// Get club info
-$stmt = $conn->prepare("
-    SELECT c.club_id, c.club_name, com.position 
-    FROM `committee` com 
-    JOIN `club` c ON com.club_id = c.club_id 
-    WHERE com.user_id = ?
-");
+// 1. FIXED SQL AMBIGUITY: Added 'c.' before club_id so MySQL knows exactly which table to pull it from
+$stmt = $conn->prepare("SELECT c.club_id, c.club_name FROM `committee` com JOIN `club` c ON com.club_id = c.club_id WHERE com.user_id = ?");
 $stmt->bind_param("s", $user_id);
 $stmt->execute();
 $club = $stmt->get_result()->fetch_assoc();
+$club_id = $club ? $club['club_id'] : null;
 
-if (!$club) {
-    $club_id = null;
-    $club_name = "No Club Assigned";
-} else {
-    $club_id = $club['club_id'];
-    $club_name = $club['club_name'];
+// 2. Fetch all events for this club (for the dropdown)
+$events = [];
+if ($club_id) {
+    $event_query = $conn->prepare("SELECT event_id, event_name, date FROM `event` WHERE club_id = ? ORDER BY date DESC");
+    $event_query->bind_param("i", $club_id);
+    $event_query->execute();
+    $events = $event_query->get_result();
 }
 
-// ==================== CREATE EVENT ====================
-if (isset($_POST['create_event'])) {
-    $event_name = trim($_POST['event_name']);
-    $date = $_POST['date'];
-    $time = $_POST['time'];
-    $venue = trim($_POST['venue']);
-    $max_cap = intval($_POST['max_cap']);
-    $description = trim($_POST['description']);
-    $qr_token = bin2hex(random_bytes(16));
+// 3. Handle Attendance Submission (The Point Engine)
+if (isset($_POST['mark_attendance'])) {
+    $register_id = intval($_POST['register_id']);
+    $student_id = $_POST['student_id'];
+    $status = $_POST['status']; // 'Present', 'Late', or 'Absent'
     
-    $insert_stmt = $conn->prepare("
-        INSERT INTO `event` (event_name, club_id, date, time, venue, max_cap, description, qr_token) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-    $insert_stmt->bind_param("sisssiss", $event_name, $club_id, $date, $time, $venue, $max_cap, $description, $qr_token);
+    // Check if attendance is already recorded for this registration
+    $check = $conn->prepare("SELECT * FROM ATTENDANCE WHERE register_id = ?");
+    $check->bind_param("i", $register_id);
+    $check->execute();
     
-    if ($insert_stmt->execute()) {
-        $message = "<div style='background:#c6f6d5; color:#22543d; padding:12px; border-radius:8px; margin-bottom:20px;'>✅ Event created successfully!</div>";
+    if ($check->get_result()->num_rows > 0) {
+        $message = "<div class='alert alert-error'>⚠️ Attendance already recorded for this student!</div>";
     } else {
-        $message = "<div style='background:#fed7d7; color:#822727; padding:12px; border-radius:8px; margin-bottom:20px;'>❌ Error: " . $conn->error . "</div>";
-    }
-}
-
-// ==================== UPDATE EVENT (WITH DESCRIPTION) ====================
-if (isset($_POST['update_event'])) {
-    $event_id = intval($_POST['event_id']);
-    $event_name = trim($_POST['event_name']);
-    $date = $_POST['date'];
-    $time = $_POST['time'];
-    $venue = trim($_POST['venue']);
-    $max_cap = intval($_POST['max_cap']);
-    $description = trim($_POST['description']);  // ← GET DESCRIPTION
-    
-    $update_stmt = $conn->prepare("
-        UPDATE `event` 
-        SET event_name = ?, date = ?, time = ?, venue = ?, max_cap = ?, description = ? 
-        WHERE event_id = ? AND club_id = ?
-    ");
-    $update_stmt->bind_param("sssssiii", $event_name, $date, $time, $venue, $max_cap, $description, $event_id, $club_id);
-    
-    if ($update_stmt->execute()) {
-        $message = "<div style='background:#c6f6d5; color:#22543d; padding:12px; border-radius:8px; margin-bottom:20px;'>✏️ Event updated successfully!</div>";
-        $edit_event = null; // Close modal
-    } else {
-        $message = "<div style='background:#fed7d7; color:#822727; padding:12px; border-radius:8px; margin-bottom:20px;'>❌ Update failed: " . $conn->error . "</div>";
-    }
-}
-
-// ==================== DELETE EVENT ====================
-if (isset($_POST['delete_event'])) {
-    $event_id = intval($_POST['event_id']);
-    
-    $check_stmt = $conn->prepare("SELECT COUNT(*) as cnt FROM `event_registration` WHERE event_id = ?");
-    $check_stmt->bind_param("i", $event_id);
-    $check_stmt->execute();
-    $has_registrations = $check_stmt->get_result()->fetch_assoc()['cnt'];
-    
-    if ($has_registrations > 0) {
-        $message = "<div style='background:#fed7d7; color:#822727; padding:12px; border-radius:8px; margin-bottom:20px;'>⚠️ Cannot delete: This event has $has_registrations registration(s).</div>";
-    } else {
-        $del_stmt = $conn->prepare("DELETE FROM `event` WHERE event_id = ? AND club_id = ?");
-        $del_stmt->bind_param("ii", $event_id, $club_id);
-        if ($del_stmt->execute()) {
-            $message = "<div style='background:#c6f6d5; color:#22543d; padding:12px; border-radius:8px; margin-bottom:20px;'>🗑️ Event deleted successfully!</div>";
+        // Determine Points based on rules
+        $points = 0;
+        if ($status == 'Present') $points = 10;
+        elseif ($status == 'Late') $points = 5;
+        
+        // Insert into ATTENDANCE table
+        $ins = $conn->prepare("INSERT INTO ATTENDANCE (register_id, start_time, attend_status, point_awarded) VALUES (?, NOW(), ?, ?)");
+        $ins->bind_param("isi", $register_id, $status, $points);
+        
+        if ($ins->execute()) {
+            // Update Student's Total Points in USER table (Only if they earned points)
+            if ($points > 0) {
+                $upd = $conn->prepare("UPDATE `USER` SET total_point = total_point + ? WHERE user_id = ?");
+                $upd->bind_param("is", $points, $student_id);
+                $upd->execute();
+            }
+            $message = "<div class='alert alert-success'>✅ Attendance marked as <strong>$status</strong>. Points awarded: +$points</div>";
+        } else {
+            $message = "<div class='alert alert-error'>❌ Error recording attendance.</div>";
         }
     }
 }
 
-// ==================== GET EVENT FOR EDIT ====================
-if (isset($_GET['edit_id'])) {
-    $edit_id = intval($_GET['edit_id']);
-    $edit_stmt = $conn->prepare("SELECT * FROM `event` WHERE event_id = ? AND club_id = ?");
-    $edit_stmt->bind_param("ii", $edit_id, $club_id);
-    $edit_stmt->execute();
-    $edit_event = $edit_stmt->get_result()->fetch_assoc();
-}
+// 4. Fetch registered students if an event is selected
+$selected_event_id = isset($_GET['event_id']) ? intval($_GET['event_id']) : null;
+$students = null;
 
-// ==================== GET ALL EVENTS ====================
-$events = [];
-if ($club_id) {
-    $events_stmt = $conn->prepare("
-        SELECT e.*, 
-            (SELECT COUNT(*) FROM `event_registration` WHERE event_id = e.event_id) AS registered_count 
-        FROM `event` e 
-        WHERE e.club_id = ? 
-        ORDER BY e.date ASC
-    ");
-    $events_stmt->bind_param("i", $club_id);
-    $events_stmt->execute();
-    $events = $events_stmt->get_result();
+if ($selected_event_id) {
+    $student_sql = "
+        SELECT er.register_id, u.user_id, u.name, er.register_type, a.attend_status, a.point_awarded
+        FROM EVENT_REGISTRATION er
+        JOIN `USER` u ON er.user_id = u.user_id
+        LEFT JOIN ATTENDANCE a ON er.register_id = a.register_id
+        WHERE er.event_id = ? AND er.status != 'Cancelled'
+        ORDER BY u.name ASC
+    ";
+    $student_stmt = $conn->prepare($student_sql);
+    $student_stmt->bind_param("i", $selected_event_id);
+    $student_stmt->execute();
+    $students = $student_stmt->get_result();
 }
 ?>
 
@@ -129,170 +89,120 @@ if ($club_id) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Events</title>
+    <title>Record Attendance</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Copy your existing styles here */
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { display: flex; background: #e2e8f0; min-height: 100vh; }
         
-        .sidebar { width: 260px; background-color: #1a202c; color: white; display: flex; flex-direction: column; padding: 30px 20px; position: fixed; height: 100vh; }
-        .sidebar-header { text-align: center; margin-bottom: 35px; }
-        .sidebar-logo { max-width: 85px; margin-bottom: 12px; }
-        .sidebar-brand { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-        .sidebar-role { font-size: 11px; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; display: inline-block; }
-        .nav-links { display: flex; flex-direction: column; gap: 15px; flex-grow: 1; }
-        .nav-links a { text-decoration: none; color: #a0aec0; font-weight: 600; padding: 12px 15px; border-radius: 8px; display: block; }
-        .nav-links a:hover, .nav-links a.active { background-color: #2d3748; color: white; }
-        .btn-logout { background-color: #e53e3e; text-align: center; padding: 12px; border-radius: 8px; margin-top: auto; color: white; text-decoration: none; display: block; }
-        
         .main-content { margin-left: 260px; padding: 40px; width: calc(100% - 260px); }
-        .welcome-card { background: white; padding: 25px 30px; border-radius: 12px; margin-bottom: 30px; border-left: 6px solid #38a169; }
-        .btn-create { background: #3182ce; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; margin-bottom: 25px; }
-        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 25px; }
-        .event-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .event-image { height: 120px; background: linear-gradient(135deg, #3182ce, #2b6cb0); display: flex; align-items: center; justify-content: center; color: white; font-size: 40px; }
-        .event-content { padding: 20px; }
-        .event-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .event-detail { font-size: 14px; color: #718096; margin-bottom: 5px; }
-        .capacity-bar { margin-top: 12px; background: #e2e8f0; border-radius: 10px; height: 8px; }
-        .capacity-fill { background: #38a169; height: 100%; border-radius: 10px; }
-        .event-actions { margin-top: 15px; display: flex; gap: 10px; }
-        .btn-edit { background: #fefcbf; color: #744210; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block; font-size: 13px; }
-        .btn-delete { background: #fff5f5; color: #c53030; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-        .btn-attend { background: #ebf8ff; color: #2b6cb0; border: none; padding: 8px 12px; border-radius: 6px; text-decoration: none; display: inline-block; font-size: 13px; }
-        .badge-upcoming { background: #c6f6d5; color: #22543d; padding: 4px 8px; border-radius: 20px; font-size: 11px; }
-        .badge-past { background: #e2e8f0; color: #4a5568; padding: 4px 8px; border-radius: 20px; font-size: 11px; }
+        .welcome-card { background: white; padding: 25px 30px; border-radius: 12px; margin-bottom: 30px; border-left: 6px solid #3182ce; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 2000; }
-        .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 500px; padding: 30px; }
-        .modal-content input, .modal-content textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Inter', sans-serif; }
-        .modal-content textarea { resize: vertical; min-height: 100px; }
-        .btn-submit { background: #3182ce; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; }
-        .btn-cancel { background: #e2e8f0; color: #4a5568; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        select { width: 100%; max-width: 400px; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px; cursor: pointer; font-family: 'Inter', sans-serif; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { background: #f8fafc; padding: 15px; text-align: left; font-weight: 600; color: #4a5568; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 15px; border-bottom: 1px solid #edf2f7; vertical-align: middle; color: #2d3748; }
+        
+        .btn-attendance { padding: 8px 15px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; margin-right: 5px; transition: 0.2s; }
+        .btn-present { background: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
+        .btn-present:hover { background: #9ae6b4; }
+        .btn-late { background: #fefcbf; color: #744210; border: 1px solid #fbd38d; }
+        .btn-late:hover { background: #fbd38d; }
+        .btn-absent { background: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
+        .btn-absent:hover { background: #feb2b2; }
+        
+        .status-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        
+        .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; }
+        .alert-success { background-color: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
+        .alert-error { background-color: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
     </style>
 </head>
 <body>
 
-<div class="sidebar">
-    <div class="sidebar-header">
-        <img src="image/LogoUMP5.png" alt="Logo" class="sidebar-logo">
-        <div class="sidebar-brand">FK Club System</div>
-        <div class="sidebar-role"><?php echo htmlspecialchars($_SESSION['role']); ?> Dashboard</div>
-    </div>
-    <div class="nav-links">
-        <a href="committee_dashboard.php">Dashboard</a>
-        <a href="committee_profile.php">My Profile</a>
-        <a href="committee_club_details.php">Club Details</a>
-        <a href="committee_events.php" class="active">Manage Events</a>
-        <a href="committee_attendance.php">Record Attendance</a>
-    </div>
-    <a href="logout.php" class="btn-logout">Logout</a>
-</div>
+    <?php include 'sidebar.php'; ?>
 
-<div class="main-content">
-    <?php echo $message; ?>
-    
-    <div class="welcome-card">
-        <h2>📅 Manage Events</h2>
-        <p><?php echo htmlspecialchars($club_name); ?> • Create, edit, and delete events</p>
-    </div>
+    <div class="main-content">
+        <?php echo $message; ?>
+        
+        <div class="welcome-card">
+            <h2>📝 Record Event Attendance</h2>
+            <p style="color: #718096; margin-top: 5px;">Select an event from the dropdown below to view registered students and mark their attendance. Points will be automatically calculated!</p>
+        </div>
 
-    <button class="btn-create" onclick="openCreateModal()">+ Create New Event</button>
+        <div class="card">
+            <h3 style="margin-bottom: 15px; color: #2d3748;">1. Select an Event</h3>
+            <form method="GET" action="committee_attendance.php">
+                <select name="event_id" onchange="this.form.submit()">
+                    <option value="">-- Choose an upcoming or past event --</option>
+                    <?php if ($events && $events->num_rows > 0): ?>
+                        <?php while($e = $events->fetch_assoc()): ?>
+                            <option value="<?php echo $e['event_id']; ?>" <?php echo ($selected_event_id == $e['event_id']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($e['event_name']); ?> (<?php echo date("d M Y", strtotime($e['date'])); ?>)
+                            </option>
+                        <?php endwhile; ?>
+                    <?php endif; ?>
+                </select>
+            </form>
+        </div>
 
-    <div class="grid-container">
-        <?php if ($events && $events->num_rows > 0): ?>
-            <?php while($event = $events->fetch_assoc()): 
-                $percentage = ($event['max_cap'] > 0) ? ($event['registered_count'] / $event['max_cap']) * 100 : 0;
-                $is_past = strtotime($event['date']) < strtotime(date('Y-m-d'));
-            ?>
-                <div class="event-card">
-                    <div class="event-image">🎯</div>
-                    <div class="event-content">
-                        <div class="event-title">
-                            <?php echo htmlspecialchars($event['event_name']); ?>
-                            <?php if ($is_past): ?>
-                                <span class="badge-past">Past</span>
-                            <?php else: ?>
-                                <span class="badge-upcoming">Upcoming</span>
-                            <?php endif; ?>
-                        </div>
-                        <div class="event-detail">📅 <?php echo date("d M Y", strtotime($event['date'])); ?></div>
-                        <div class="event-detail">⏰ <?php echo date("h:i A", strtotime($event['time'])); ?></div>
-                        <div class="event-detail">📍 <?php echo htmlspecialchars($event['venue']); ?></div>
-                        <?php if (!empty($event['description'])): ?>
-                            <div class="event-detail">📝 <?php echo htmlspecialchars(substr($event['description'], 0, 80)) . (strlen($event['description']) > 80 ? '...' : ''); ?></div>
-                        <?php endif; ?>
-                        <div class="capacity-bar"><div class="capacity-fill" style="width: <?php echo $percentage; ?>%;"></div></div>
-                        <div class="event-detail">👥 <?php echo $event['registered_count']; ?> / <?php echo $event['max_cap']; ?> registered</div>
-                        <div class="event-actions">
-                            <a href="committee_attendance.php?event_id=<?php echo $event['event_id']; ?>" class="btn-attend">📝 Attendance</a>
-                            <a href="?edit_id=<?php echo $event['event_id']; ?>" class="btn-edit">✏️ Edit</a>
-                            <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this event?');">
-                                <input type="hidden" name="event_id" value="<?php echo $event['event_id']; ?>">
-                                <button type="submit" name="delete_event" class="btn-delete">🗑️ Delete</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <div style="background:#f7fafc; padding:60px; text-align:center; border-radius:12px; color:#718096;">
-                No events yet. Click "Create New Event" to get started!
+        <?php if ($selected_event_id): ?>
+            <div class="card">
+                <h3 style="margin-bottom: 15px; color: #2d3748;">2. Registered Students</h3>
+                
+                <?php if ($students && $students->num_rows > 0): ?>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Matrix ID</th>
+                                <th>Student Name</th>
+                                <th>Role</th>
+                                <th>Actions / Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php while($student = $students->fetch_assoc()): ?>
+                                <tr>
+                                    <td><strong><?php echo htmlspecialchars($student['user_id']); ?></strong></td>
+                                    <td><?php echo htmlspecialchars($student['name']); ?></td>
+                                    <td><span style="background: #e2e8f0; padding: 4px 8px; border-radius: 6px; font-size: 12px; color: #4a5568; font-weight: bold;"><?php echo htmlspecialchars($student['register_type']); ?></span></td>
+                                    
+                                    <td>
+                                        <?php if ($student['attend_status'] == null): ?>
+                                            <form method="POST" style="display:inline;">
+                                                <input type="hidden" name="register_id" value="<?php echo $student['register_id']; ?>">
+                                                <input type="hidden" name="student_id" value="<?php echo $student['user_id']; ?>">
+                                                
+                                                <button type="submit" name="status" value="Present" class="btn-attendance btn-present">Present (+10)</button>
+                                                <button type="submit" name="status" value="Late" class="btn-attendance btn-late">Late (+5)</button>
+                                                <button type="submit" name="status" value="Absent" class="btn-attendance btn-absent">Absent (0)</button>
+                                                <input type="hidden" name="mark_attendance" value="1">
+                                            </form>
+                                        <?php else: ?>
+                                            <?php 
+                                                if ($student['attend_status'] == 'Present') {
+                                                    echo "<span class='status-badge btn-present'>✅ Present (+{$student['point_awarded']} pts)</span>";
+                                                } elseif ($student['attend_status'] == 'Late') {
+                                                    echo "<span class='status-badge btn-late'>⚠️ Late (+{$student['point_awarded']} pts)</span>";
+                                                } else {
+                                                    echo "<span class='status-badge btn-absent'>❌ Absent</span>";
+                                                }
+                                            ?>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
+                <?php else: ?>
+                    <p style="color: #718096; font-style: italic; padding: 20px 0; background: #f8fafc; text-align: center; border-radius: 8px;">No students have registered for this event yet.</p>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
-    </div>
-</div>
 
-<!-- Create Modal -->
-<div id="createModal" class="modal">
-    <div class="modal-content">
-        <h3>➕ Create New Event</h3>
-        <form method="POST">
-            <input type="text" name="event_name" placeholder="Event Name" required>
-            <input type="date" name="date" required>
-            <input type="time" name="time" required>
-            <input type="text" name="venue" placeholder="Venue" required>
-            <input type="number" name="max_cap" placeholder="Max Capacity" required>
-            <textarea name="description" rows="3" placeholder="Event description (optional)"></textarea>
-            <button type="submit" name="create_event" class="btn-submit">Create Event</button>
-            <button type="button" class="btn-cancel" onclick="closeCreateModal()">Cancel</button>
-        </form>
     </div>
-</div>
 
-<!-- Edit Modal -->
-<?php if ($edit_event): ?>
-<div id="editModal" class="modal" style="display: flex;">
-    <div class="modal-content">
-        <h3>✏️ Edit Event</h3>
-        <form method="POST">
-            <input type="hidden" name="event_id" value="<?php echo $edit_event['event_id']; ?>">
-            <input type="text" name="event_name" value="<?php echo htmlspecialchars($edit_event['event_name']); ?>" required>
-            <input type="date" name="date" value="<?php echo $edit_event['date']; ?>" required>
-            <input type="time" name="time" value="<?php echo $edit_event['time']; ?>" required>
-            <input type="text" name="venue" value="<?php echo htmlspecialchars($edit_event['venue']); ?>" required>
-            <input type="number" name="max_cap" value="<?php echo $edit_event['max_cap']; ?>" required>
-            <textarea name="description" rows="4" placeholder="Event description..."><?php echo htmlspecialchars($edit_event['description'] ?? ''); ?></textarea>
-            <button type="submit" name="update_event" class="btn-submit">💾 Save Changes</button>
-            <a href="committee_events.php" class="btn-cancel">Cancel</a>
-        </form>
-    </div>
-</div>
-<?php endif; ?>
-
-<script>
-    function openCreateModal() {
-        document.getElementById('createModal').style.display = 'flex';
-    }
-    function closeCreateModal() {
-        document.getElementById('createModal').style.display = 'none';
-    }
-    window.onclick = function(event) {
-        if (event.target == document.getElementById('createModal')) {
-            closeCreateModal();
-        }
-    }
-</script>
 </body>
 </html>
