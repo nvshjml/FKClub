@@ -26,32 +26,15 @@ if (isset($_POST['register_btn']) && isset($_POST['event_id'])) {
     if ($check_stmt->get_result()->num_rows > 0) {
         $message = "<div class='alert alert-error'>⚠️ You are already registered for this event!</div>";
     } else {
-        // Check event capacity - handle missing max_participants column
-        $capacity_sql = "SELECT e.*, 
-                                (SELECT COUNT(*) FROM EVENT_REGISTRATION er WHERE er.event_id = e.event_id AND er.status != 'Cancelled') as registered_count
-                         FROM EVENT e WHERE e.event_id = ?";
-        $capacity_stmt = $conn->prepare($capacity_sql);
-        $capacity_stmt->bind_param("i", $event_id);
-        $capacity_stmt->execute();
-        $capacity_result = $capacity_stmt->get_result()->fetch_assoc();
+        // Register for event (no capacity check)
+        $register_sql = "INSERT INTO EVENT_REGISTRATION (user_id, event_id, registration_date, status) VALUES (?, ?, NOW(), 'Registered')";
+        $register_stmt = $conn->prepare($register_sql);
+        $register_stmt->bind_param("si", $user_id, $event_id);
         
-        // Set default max_participants if column doesn't exist
-        $max_participants = isset($capacity_result['max_participants']) && $capacity_result['max_participants'] ? $capacity_result['max_participants'] : 100;
-        $registered_count = $capacity_result['registered_count'] ?: 0;
-        
-        if ($registered_count >= $max_participants) {
-            $message = "<div class='alert alert-error'>❌ Sorry! This event is already full. (Max: {$max_participants} participants)</div>";
+        if ($register_stmt->execute()) {
+            $message = "<div class='alert alert-success'>✅ Successfully registered for the event!</div>";
         } else {
-            // Register for event
-            $register_sql = "INSERT INTO EVENT_REGISTRATION (user_id, event_id, registration_date, status) VALUES (?, ?, NOW(), 'Registered')";
-            $register_stmt = $conn->prepare($register_sql);
-            $register_stmt->bind_param("si", $user_id, $event_id);
-            
-            if ($register_stmt->execute()) {
-                $message = "<div class='alert alert-success'>✅ Successfully registered for the event!</div>";
-            } else {
-                $message = "<div class='alert alert-error'>❌ Error registering for event. Please try again.</div>";
-            }
+            $message = "<div class='alert alert-error'>❌ Error registering for event. Please try again.</div>";
         }
     }
 }
@@ -73,7 +56,7 @@ if (isset($_GET['cancel']) && isset($_GET['event_id'])) {
 
 // Fetch available events (upcoming, not registered yet)
 $available_events_sql = "
-    SELECT e.*, 
+    SELECT e.event_id, e.event_name, e.date, e.time, e.venue,
            (SELECT COUNT(*) FROM EVENT_REGISTRATION er WHERE er.event_id = e.event_id AND er.status != 'Cancelled') as registered_count,
            CASE WHEN er2.user_id IS NOT NULL THEN 1 ELSE 0 END as is_registered
     FROM EVENT e
@@ -88,7 +71,7 @@ $available_events = $stmt->get_result();
 
 // Fetch user's registration history
 $history_sql = "
-    SELECT er.*, e.event_name, e.date, e.time, e.venue, e.max_participants, c.club_name,
+    SELECT er.*, e.event_name, e.date, e.time, e.venue, c.club_name,
            DATEDIFF(e.date, CURDATE()) as days_until
     FROM EVENT_REGISTRATION er
     JOIN EVENT e ON er.event_id = e.event_id
@@ -102,7 +85,7 @@ $stmt->execute();
 $registration_history = $stmt->get_result();
 
 // Get registered count for stats
-$registered_count = $registration_history->num_rows;
+$registered_count_total = $registration_history->num_rows;
 $available_count = $available_events->num_rows;
 ?>
 
@@ -145,14 +128,10 @@ $available_count = $available_events->num_rows;
         .item-content { padding: 20px; }
         .item-title { font-size: 18px; font-weight: bold; color: #2d3748; margin-bottom: 10px; }
         .item-detail { font-size: 14px; color: #718096; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
-        .capacity-bar { margin: 12px 0; }
-        .capacity-bar .bar { background: #e2e8f0; border-radius: 10px; height: 8px; overflow: hidden; }
-        .capacity-bar .fill { background: #38a169; height: 100%; border-radius: 10px; }
-        .capacity-text { font-size: 12px; color: #64748b; margin-top: 5px; }
         
         .btn-action { display: block; width: 100%; text-align: center; padding: 10px; margin-top: 15px; background: #3182ce; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; text-decoration: none; }
         .btn-action:hover { background: #2b6cb0; }
-        .btn-action:disabled, .btn-full { background: #a0aec0; cursor: not-allowed; }
+        .btn-action:disabled { background: #a0aec0; cursor: not-allowed; }
         .btn-cancel { background: #e53e3e; }
         .btn-cancel:hover { background: #c53030; }
         
@@ -219,7 +198,7 @@ $available_count = $available_events->num_rows;
             </div>
             <div class="stat-card" style="border-bottom: 4px solid #38a169;">
                 <h3>My Registrations</h3>
-                <div class="number"><?php echo $registered_count; ?></div>
+                <div class="number"><?php echo $registered_count_total; ?></div>
             </div>
         </div>
 
@@ -229,11 +208,7 @@ $available_count = $available_events->num_rows;
         <div class="grid-container">
             <?php if ($available_events && $available_events->num_rows > 0): ?>
                 <?php while($event = $available_events->fetch_assoc()): 
-                    // Handle max_participants safely (default 100 if column doesn't exist)
-                    $max_participants = isset($event['max_participants']) && $event['max_participants'] ? $event['max_participants'] : 100;
                     $registered_count_event = isset($event['registered_count']) ? $event['registered_count'] : 0;
-                    $percentage = ($registered_count_event / $max_participants) * 100;
-                    $is_full = $registered_count_event >= $max_participants;
                     $is_registered = isset($event['is_registered']) ? $event['is_registered'] : 0;
                 ?>
                     <div class="item-card">
@@ -243,21 +218,10 @@ $available_count = $available_events->num_rows;
                             <div class="item-detail">📅 <?php echo date("d M Y", strtotime($event['date'])); ?></div>
                             <div class="item-detail">⏰ <?php echo date("h:i A", strtotime($event['time'])); ?></div>
                             <div class="item-detail">📍 <?php echo htmlspecialchars($event['venue']); ?></div>
-                            
-                            <div class="capacity-bar">
-                                <div class="bar">
-                                    <div class="fill" style="width: <?php echo min($percentage, 100); ?>%"></div>
-                                </div>
-                                <div class="capacity-text">
-                                    👥 <strong><?php echo $registered_count_event; ?></strong> / <?php echo $max_participants; ?> registered
-                                    <?php echo $is_full ? ' (FULL)' : ' (' . ($max_participants - $registered_count_event) . ' slots left)'; ?>
-                                </div>
-                            </div>
+                            <div class="item-detail">👥 Registered: <strong><?php echo $registered_count_event; ?></strong> participants</div>
                             
                             <?php if ($is_registered): ?>
                                 <button class="btn-action" disabled style="background: #38a169;">✅ Already Registered</button>
-                            <?php elseif ($is_full): ?>
-                                <button class="btn-action btn-full" disabled>❌ Event Full</button>
                             <?php else: ?>
                                 <form method="POST" action="" onsubmit="return confirm('Are you sure you want to register for this event?')">
                                     <input type="hidden" name="event_id" value="<?php echo $event['event_id']; ?>">
