@@ -72,6 +72,19 @@ $top3 = [];
 while ($row = $top3_result->fetch_assoc()) {
     $top3[] = $row;
 }
+
+// ============================================================
+// FIXED: Helper function to get badge based on points (matches PDF)
+// ============================================================
+function getStudentBadge($points, $rank) {
+    if ($rank == 1) return '👑 Champion';
+    if ($rank == 2) return '🥈 Runner Up';
+    if ($rank == 3) return '🥉 Bronze';
+    if ($points >= 80) return '🏆 Outstanding Participant';
+    if ($points >= 50) return '⭐ Highly Active';
+    if ($points >= 20) return '📜 Active Participant';
+    return '⚠️ Needs Improvement';
+}
 ?>
 
 <!DOCTYPE html>
@@ -352,7 +365,7 @@ while ($row = $top3_result->fetch_assoc()) {
                             <th style="width: 80px;">Rank</th>
                             <th>Student Name</th>
                             <th style="width: 120px; text-align: center;">Points</th>
-                            <th style="width: 120px; text-align: center;">Badge</th>
+                            <th style="width: 180px; text-align: center;">Recognition Level</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -360,33 +373,30 @@ while ($row = $top3_result->fetch_assoc()) {
                         $rank_counter = 1;
                         while($student = $leaderboard_result->fetch_assoc()): 
                             $is_current_user = ($student['user_id'] == $user_id);
-                            $badge = '';
-                            if ($rank_counter == 1) $badge = '👑 Champion';
-                            elseif ($rank_counter == 2) $badge = '🥈 Runner Up';
-                            elseif ($rank_counter == 3) $badge = '🥉 Bronze';
-                            elseif ($student['total_point'] >= 80) $badge = '🏆 Outstanding';
-                            elseif ($student['total_point'] >= 50) $badge = '⭐ Active';
-                            elseif ($student['total_point'] >= 20) $badge = '📜 Participant';
-                            else $badge = '⚠️ Beginner';
+                            // FIXED: Use the helper function for consistent badge display
+                            $badge = getStudentBadge($student['total_point'], $rank_counter);
                         ?>
                             <tr class="<?php echo $is_current_user ? 'current-user' : ''; ?>">
                                 <td>
                                     <span class="rank-badge <?php echo $rank_counter <= 3 ? 'top-' . $rank_counter : ''; ?>">
                                         <?php echo $rank_counter; ?>
                                     </span>
+                                 </span>
                                 </td>
                                 <td>
                                     <?php echo htmlspecialchars($student['name']); ?>
                                     <?php if ($is_current_user): ?>
                                         <span style="background: #3182ce; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; margin-left: 8px;">You</span>
                                     <?php endif; ?>
+                                 </span>
                                 </td>
                                 <td style="text-align: center;">
                                     <span class="points-display"><?php echo $student['total_point']; ?></span>
-                                </td>
+                                 </span>
+                                </table>
                                 <td style="text-align: center;">
                                     <?php echo $badge; ?>
-                                </td>
+                                 </span>
                             </tr>
                         <?php 
                             $rank_counter++;
@@ -422,10 +432,10 @@ while ($row = $top3_result->fetch_assoc()) {
         <h2 class="section-title">💪 Keep Going!</h2>
         <div style="background: white; border-radius: 16px; padding: 25px; margin-top: 20px; text-align: center;">
             <?php if ($current_user_points < 20): ?>
-                <p style="font-size: 16px; color: #e53e3e;">⚠️ You need <strong><?php echo 20 - $current_user_points; ?></strong> more points to reach the Participation Certificate level!</p>
+                <p style="font-size: 16px; color: #e53e3e;">⚠️ You need <strong><?php echo 20 - $current_user_points; ?></strong> more points to reach the Active Participant level!</p>
                 <p style="margin-top: 10px; color: #718096;">Attend more events and be on time to earn points!</p>
             <?php elseif ($current_user_points < 50): ?>
-                <p style="font-size: 16px; color: #3182ce;">📜 You need <strong><?php echo 50 - $current_user_points; ?></strong> more points to reach the Active Student Award level!</p>
+                <p style="font-size: 16px; color: #3182ce;">📜 You need <strong><?php echo 50 - $current_user_points; ?></strong> more points to reach the Highly Active level!</p>
                 <p style="margin-top: 10px; color: #718096;">Keep participating in club activities!</p>
             <?php elseif ($current_user_points < 80): ?>
                 <p style="font-size: 16px; color: #38a169;">⭐ You need <strong><?php echo 80 - $current_user_points; ?></strong> more points to become an Outstanding Participant!</p>
@@ -436,7 +446,7 @@ while ($row = $top3_result->fetch_assoc()) {
             <?php endif; ?>
             
             <div style="margin-top: 20px;">
-                <a href="student_event_registration.php" class="btn-action" style="display: inline-block; background: #3182ce; color: white; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                <a href="student_event_registration.php" style="display: inline-block; background: #3182ce; color: white; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
                     📅 Register for More Events
                 </a>
             </div>

@@ -28,14 +28,17 @@ if (isset($_POST['action']) && isset($_POST['target_id']) && isset($_POST['type'
 }
 
 // 2. Fetch combined list
+// 2. Fetch combined list
 $pending_query = "
-    SELECT 'User' as type, user_id as id, name as detail, email as extra FROM `USER` WHERE account_status = 'Pending'
+    SELECT 'User' as type, user_id as id, name as detail, email as extra 
+    FROM `USER` 
+    WHERE account_status = 'Pending'
     UNION
     SELECT 'Club' as type, cm.membership_id as id, c.club_name as detail, u.name as extra 
     FROM CLUB_MEMBERSHIP cm 
     JOIN CLUB c ON cm.club_id = c.club_id 
     JOIN USER u ON cm.user_id = u.user_id
-    WHERE cm.status = 'Pending'
+    WHERE 'Pending' = 'Pending' 
 ";
 $result = $conn->query($pending_query);
 ?>
