@@ -22,22 +22,52 @@ $user_data = $stmt->get_result()->fetch_assoc();
 
 $total_points = $user_data ? $user_data['total_point'] : 0;
 
-// Determine recognition level based on points (Table B from project spec)
+// ============================================================
+// FIXED: Recognition levels now EXACTLY match PDF Table B (Page 6)
+// ============================================================
 function getRecognitionLevel($points) {
     if ($points >= 80) {
-        return ['level' => 'Outstanding Participant', 'badge' => '🏆', 'color' => '#ffd700', 'bg' => '#fef3c7', 'next' => null];
+        return [
+            'level' => 'Outstanding Participant', 
+            'badge' => '🏆', 
+            'color' => '#ffd700', 
+            'bg' => '#fef3c7', 
+            'benefits' => 'Eligible for leadership award / priority in event registration',
+            'next' => null
+        ];
     } elseif ($points >= 50) {
-        return ['level' => 'Eligible for Active Student Award', 'badge' => '⭐', 'color' => '#38a169', 'bg' => '#c6f6d5', 'next' => 80];
+        return [
+            'level' => 'Highly Active', 
+            'badge' => '⭐', 
+            'color' => '#38a169', 
+            'bg' => '#c6f6d5', 
+            'benefits' => 'Eligible for active student award / bonus points',
+            'next' => 80
+        ];
     } elseif ($points >= 20) {
-        return ['level' => 'Eligible for Participation Certificate', 'badge' => '📜', 'color' => '#3182ce', 'bg' => '#ebf8ff', 'next' => 50];
+        return [
+            'level' => 'Active Participant', 
+            'badge' => '📜', 
+            'color' => '#3182ce', 
+            'bg' => '#ebf8ff', 
+            'benefits' => 'Eligible for participation certificate',
+            'next' => 50
+        ];
     } else {
-        return ['level' => 'Warning / Reminder to Participate More', 'badge' => '⚠️', 'color' => '#e53e3e', 'bg' => '#fed7d7', 'next' => 20];
+        return [
+            'level' => 'Needs Improvement', 
+            'badge' => '⚠️', 
+            'color' => '#e53e3e', 
+            'bg' => '#fed7d7', 
+            'benefits' => 'Warning / Reminder to participate more',
+            'next' => 20
+        ];
     }
 }
 
 $recognition = getRecognitionLevel($total_points);
 
-// Fetch registration history (without attendance_status column)
+// Fetch registration history
 $history_sql = "
     SELECT er.*, e.event_name, e.date, e.time, e.venue
     FROM EVENT_REGISTRATION er
@@ -159,6 +189,14 @@ $upcoming_events = $stmt->get_result();
             padding: 8px 20px;
             border-radius: 30px;
         }
+        .points-card .benefits {
+            margin-top: 20px;
+            font-size: 14px;
+            background: rgba(255,255,255,0.15);
+            padding: 10px 20px;
+            border-radius: 30px;
+            display: inline-block;
+        }
         
         /* Progress Bar */
         .progress-card {
@@ -278,13 +316,16 @@ $upcoming_events = $stmt->get_result();
             <div class="recognition-level" style="background: <?php echo $recognition['bg']; ?>; color: <?php echo $recognition['color']; ?>;">
                 <?php echo $recognition['level']; ?>
             </div>
+            <div class="benefits">
+                🎁 <?php echo $recognition['benefits']; ?>
+            </div>
         </div>
 
         <!-- Progress Bar (if not at max) -->
         <?php if ($recognition['next'] !== null): ?>
         <div class="progress-card">
             <div class="progress-label">
-                <span>Progress to next level</span>
+                <span>Progress to next level: <?php echo $recognition['level']; ?> → Next Level</span>
                 <span><?php echo $total_points; ?> / <?php echo $recognition['next']; ?> points</span>
             </div>
             <div class="progress-bar-container">
@@ -343,8 +384,7 @@ $upcoming_events = $stmt->get_result();
                                 <td><?php echo date("d M Y", strtotime($record['date'])); ?></td>
                                 <td><?php echo date("h:i A", strtotime($record['time'])); ?></td>
                                 <td><?php echo htmlspecialchars($record['venue']); ?></td>
-                                <td><?php echo date("d M Y", strtotime($record['registration_date'])); ?></span>
-                                </td>
+                                <td><?php echo date("d M Y", strtotime($record['register_date'])); ?></td>
                                 <td>
                                     <?php if ($record['status'] == 'Registered'): ?>
                                         <span class="status-badge status-registered">✅ Registered</span>
@@ -393,7 +433,7 @@ $upcoming_events = $stmt->get_result();
         </div>
         <?php endif; ?>
 
-        <!-- Point System Reference -->
+        <!-- Point System Reference (Table A from PDF) -->
         <h2 class="section-title">📖 Point System Reference</h2>
         <div class="table-container">
             <table class="data-table">
@@ -404,30 +444,30 @@ $upcoming_events = $stmt->get_result();
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td>✅ Present on time</td><td class="points-positive" style="color: #38a169; font-weight: 700;">+10 points</td></tr>
-                    <tr><td>⏰ Late arrival</td><td class="points-positive" style="color: #38a169; font-weight: 700;">+5 points</td></tr>
-                    <tr><td>❌ Absent without notice</td><td class="points-negative" style="color: #e53e3e; font-weight: 700;">-10 points</td></tr>
-                    <tr><td>🤝 Volunteer/Helper in event</td><td class="points-positive" style="color: #38a169; font-weight: 700;">+5 points</td></tr>
+                    <tr><td>✅ Present on time</td><td style="color: #38a169; font-weight: 700;">+10 points</td></tr>
+                    <tr><td>⏰ Late arrival</td><td style="color: #38a169; font-weight: 700;">+5 points</td></tr>
+                    <tr><td>❌ Absent without notice</td><td style="color: #e53e3e; font-weight: 700;">-10 points</td></tr>
+                    <tr><td>🤝 Volunteer/Helper in event</td><td style="color: #38a169; font-weight: 700;">+5 points</td></tr>
                 </tbody>
             </table>
         </div>
 
-        <!-- Recognition Levels Reference -->
+        <!-- Recognition Levels Reference (Table B from PDF) -->
         <h2 class="section-title">🏅 Recognition Levels</h2>
         <div class="table-container">
             <table class="data-table">
                 <thead>
                     <tr>
                         <th>Total Points</th>
-                        <th>Recognition</th>
-                        <th>Enforcement</th>
+                        <th>Recognition Level</th>
+                        <th>Benefits</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr><td>80 and above</td><td>🏆 Outstanding Participant</td><td>Eligible for leadership award / priority in event registration</td></tr>
-                    <tr><td>50 – 79</td><td>⭐ Eligible for Active Student Award</td><td>Eligible for active student award / bonus points</td></tr>
-                    <tr><td>20 – 49</td><td>📜 Eligible for Participation Certificate</td><td>Eligible for participation certificate</td></tr>
-                    <tr><td>Less than 20</td><td>⚠️ Warning</td><td>Reminder to participate more</td></tr>
+                    <tr><td>50 – 79</td><td>⭐ Highly Active</td><td>Eligible for active student award / bonus points</td></tr>
+                    <tr><td>20 – 49</td><td>📜 Active Participant</td><td>Eligible for participation certificate</td></tr>
+                    <tr><td>Less than 20</td><td>⚠️ Needs Improvement</td><td>Warning / Reminder to participate more</td></tr>
                 </tbody>
             </table>
         </div>

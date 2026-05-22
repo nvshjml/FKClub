@@ -157,9 +157,16 @@ if ($club_id) {
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 2000; }
         .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 500px; padding: 30px; }
         .modal-content input, .modal-content textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Inter', sans-serif; }
+<<<<<<< HEAD
+        .btn-submit { background: #3182ce; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; }
+        .btn-cancel { background: #e2e8f0; color: #4a5568; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; margin-left: 10px; text-decoration: none; display: inline-block; }
+        
+        .description-text { background: #f7fafc; padding: 8px 12px; border-radius: 8px; margin-top: 8px; font-size: 13px; color: #4a5568; border-left: 3px solid #3182ce; }
+=======
         .modal-content textarea { resize: vertical; min-height: 100px; }
         .btn-submit { background: #3182ce; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; }
         .btn-cancel { background: #e2e8f0; color: #4a5568; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
+>>>>>>> 301b9024bf13167bb6ff9b1a2c590ea2c55613e2
     </style>
 </head>
 <body>
@@ -196,11 +203,23 @@ if ($club_id) {
                         <div class="event-detail">📅 <?php echo date("d M Y", strtotime($event['date'])); ?></div>
                         <div class="event-detail">⏰ <?php echo date("h:i A", strtotime($event['time'])); ?></div>
                         <div class="event-detail">📍 <?php echo htmlspecialchars($event['venue']); ?></div>
+<<<<<<< HEAD
+                        
+                        <!-- SHOW DESCRIPTION IF EXISTS -->
+                        <?php if (!empty($event['description'])): ?>
+                            <div class="description-text">📝 <?php echo htmlspecialchars($event['description']); ?></div>
+                        <?php endif; ?>
+                        
+                        <div class="capacity-bar"><div class="capacity-fill" style="width: <?php echo $percentage; ?>%;"></div></div>
+                        <div class="event-detail">👥 <?php echo $event['registered_count']; ?> / <?php echo $event['max_cap']; ?> registered</div>
+                        
+=======
                         <?php if (!empty($event['description'])): ?>
                             <div class="event-detail">📝 <?php echo htmlspecialchars(substr($event['description'], 0, 80)) . (strlen($event['description']) > 80 ? '...' : ''); ?></div>
                         <?php endif; ?>
                         <div class="capacity-bar"><div class="capacity-fill" style="width: <?php echo $percentage; ?>%;"></div></div>
                         <div class="event-detail">👥 <?php echo $event['registered_count']; ?> / <?php echo $event['max_cap']; ?> registered</div>
+>>>>>>> 301b9024bf13167bb6ff9b1a2c590ea2c55613e2
                         <div class="event-actions">
                             <a href="committee_attendance.php?event_id=<?php echo $event['event_id']; ?>" class="btn-attend">📝 Attendance</a>
                             <a href="?edit_id=<?php echo $event['event_id']; ?>" class="btn-edit">✏️ Edit</a>
@@ -229,7 +248,11 @@ if ($club_id) {
             <input type="time" name="time" required>
             <input type="text" name="venue" placeholder="Venue" required>
             <input type="number" name="max_cap" placeholder="Max Capacity" required>
+<<<<<<< HEAD
+            <textarea name="description" rows="4" placeholder="Event Description (optional)"></textarea>
+=======
             <textarea name="description" rows="3" placeholder="Event description (optional)"></textarea>
+>>>>>>> 301b9024bf13167bb6ff9b1a2c590ea2c55613e2
             <button type="submit" name="create_event" class="btn-submit">Create Event</button>
             <button type="button" class="btn-cancel" onclick="closeCreateModal()">Cancel</button>
         </form>
@@ -247,8 +270,13 @@ if ($club_id) {
             <input type="time" name="time" value="<?php echo $edit_event['time']; ?>" required>
             <input type="text" name="venue" value="<?php echo htmlspecialchars($edit_event['venue']); ?>" required>
             <input type="number" name="max_cap" value="<?php echo $edit_event['max_cap']; ?>" required>
+<<<<<<< HEAD
+            <textarea name="description" rows="4" placeholder="Event Description"><?php echo htmlspecialchars($edit_event['description'] ?? ''); ?></textarea>
+            <button type="submit" name="update_event" class="btn-submit">Save Changes</button>
+=======
             <textarea name="description" rows="4" placeholder="Event description..."><?php echo htmlspecialchars($edit_event['description'] ?? ''); ?></textarea>
             <button type="submit" name="update_event" class="btn-submit">💾 Save Changes</button>
+>>>>>>> 301b9024bf13167bb6ff9b1a2c590ea2c55613e2
             <a href="committee_events.php" class="btn-cancel">Cancel</a>
         </form>
     </div>
@@ -265,6 +293,9 @@ if ($club_id) {
     window.onclick = function(event) {
         if (event.target == document.getElementById('createModal')) {
             closeCreateModal();
+        }
+        if (event.target == document.getElementById('editModal')) {
+            window.location.href = 'committee_events.php';
         }
     }
 </script>
