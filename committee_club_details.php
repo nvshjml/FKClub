@@ -13,6 +13,18 @@ $user_name = $_SESSION['name'];
 $message = "";
 $current_page = basename($_SERVER['PHP_SELF']);
 
+// Initialize club variables with default values
+$club_id = null;
+$club_name = "No Club Assigned";
+$position = "N/A";
+$club = [
+    'club_id' => null,
+    'club_name' => 'No Club Assigned',
+    'description' => 'No description available.',
+    'advisor_name' => 'Not Assigned',
+    'isActive' => 0
+];
+
 // Get club info
 $stmt = $conn->prepare("
     SELECT c.*, com.position 
@@ -22,16 +34,18 @@ $stmt = $conn->prepare("
 ");
 $stmt->bind_param("s", $user_id);
 $stmt->execute();
-$club = $stmt->get_result()->fetch_assoc();
+$result = $stmt->get_result();
+$club_data = $result->fetch_assoc();
 
-if (!$club) {
+if ($club_data && $club_data['club_id']) {
+    $club_id = $club_data['club_id'];
+    $club_name = $club_data['club_name'];
+    $position = $club_data['position'];
+    $club = $club_data;
+} else {
     $club_id = null;
     $club_name = "No Club Assigned";
     $position = "N/A";
-} else {
-    $club_id = $club['club_id'];
-    $club_name = $club['club_name'];
-    $position = $club['position'];
 }
 
 // Get all committee members
@@ -52,10 +66,13 @@ if ($club_id) {
 // Get member count
 $member_count = 0;
 if ($club_id) {
-    $stmt3 = $conn->prepare("SELECT COUNT(*) as total FROM `club_membership` WHERE club_id = ?");
+    $stmt3 = $conn->prepare("SELECT COUNT(*) as total FROM `club_membership` WHERE club_id = ? AND status = 'Approved'");
     $stmt3->bind_param("i", $club_id);
     $stmt3->execute();
-    $member_count = $stmt3->get_result()->fetch_assoc()['total'];
+    $result3 = $stmt3->get_result();
+    if ($result3) {
+        $member_count = $result3->fetch_assoc()['total'];
+    }
 }
 
 // Get event count for this club
@@ -64,12 +81,15 @@ if ($club_id) {
     $stmt4 = $conn->prepare("SELECT COUNT(*) as total FROM `event` WHERE club_id = ?");
     $stmt4->bind_param("i", $club_id);
     $stmt4->execute();
-    $event_count = $stmt4->get_result()->fetch_assoc()['total'];
+    $result4 = $stmt4->get_result();
+    if ($result4) {
+        $event_count = $result4->fetch_assoc()['total'];
+    }
 }
 
 // Handle club description update
-if (isset($_POST['update_club'])) {
-    $new_description = $_POST['description'];
+if (isset($_POST['update_club']) && $club_id) {
+    $new_description = trim($_POST['description']);
     $update_stmt = $conn->prepare("UPDATE `club` SET description = ? WHERE club_id = ?");
     $update_stmt->bind_param("si", $new_description, $club_id);
     if ($update_stmt->execute()) {
@@ -89,6 +109,18 @@ if (isset($_POST['update_club'])) {
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { display: flex; background: #e2e8f0; min-height: 100vh; color: #333; }
+        
+        /* Sidebar */
+        .sidebar { width: 260px; background-color: #1a202c; color: white; display: flex; flex-direction: column; padding: 30px 20px; position: fixed; height: 100vh; box-shadow: 4px 0 10px rgba(0,0,0,0.1); z-index: 1000; top: 0; left: 0;}
+        .sidebar-header { text-align: center; margin-bottom: 35px; }
+        .sidebar-logo { max-width: 85px; margin-bottom: 12px; display: inline-block; }
+        .sidebar-brand { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 6px; }
+        .sidebar-role { font-size: 11px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 1.5px; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; display: inline-block; }
+        .nav-links { display: flex; flex-direction: column; gap: 15px; flex-grow: 1; }
+        .nav-links a { text-decoration: none; color: #a0aec0; font-weight: 600; padding: 12px 15px; border-radius: 8px; transition: 0.3s; display: block; }
+        .nav-links a:hover, .nav-links a.active { background-color: #2d3748; color: white; }
+        .btn-logout { background-color: #e53e3e; color: white; text-align: center; text-decoration: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: auto; transition: 0.2s; }
+        .btn-logout:hover { background-color: #c53030; }
         
         .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; max-width: 1200px; width: calc(100% - 260px); }
         .welcome-card { background-color: white; padding: 25px 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; border-left: 6px solid #38a169; }
@@ -126,11 +158,27 @@ if (isset($_POST['update_club'])) {
         .badge-secretary { background: #c6f6d5; color: #22543d; }
         .badge-treasurer { background: #bee3f8; color: #2c5282; }
         .badge-member { background: #e2e8f0; color: #4a5568; }
+        
+        .no-data { text-align: center; padding: 40px; color: #a0aec0; }
     </style>
 </head>
 <body>
 
-    <?php include 'sidebar.php'; ?>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <img src="image/LogoUMP5.png" alt="UMPSA Logo" class="sidebar-logo">
+            <div class="sidebar-brand">FK Club System</div>
+            <div class="sidebar-role">COMMITTEE</div>
+        </div>
+        <div class="nav-links">
+            <a href="committee_dashboard.php">Dashboard</a>
+            <a href="committee_club_details.php" class="active">Club Details</a>
+            <a href="committee_events.php">Manage Events</a>
+            <a href="committee_attendance.php">Attendance</a>
+            <a href="committee_reports.php">Reports</a>
+        </div>
+        <a href="logout.php" class="btn-logout">Logout</a>
+    </div>
 
     <div class="main-content">
         <?php echo $message; ?>
@@ -146,6 +194,7 @@ if (isset($_POST['update_club'])) {
             <div class="stat-card" style="border-bottom: 4px solid #805ad5;"><h3>Committee Size</h3><div class="number"><?php echo $committee_members ? $committee_members->num_rows : 0; ?></div></div>
         </div>
 
+        <?php if ($club_id): ?>
         <div class="club-info-card">
             <div class="club-header-bg">
                 <h1><?php echo htmlspecialchars($club_name); ?></h1>
@@ -154,7 +203,7 @@ if (isset($_POST['update_club'])) {
             <div class="club-body">
                 <div class="info-row">
                     <div class="info-label">Club ID</div>
-                    <div class="info-value"><?php echo htmlspecialchars($club['club_id'] ?? 'N/A'); ?></div>
+                    <div class="info-value"><?php echo htmlspecialchars($club_id); ?></div>
                 </div>
                 <div class="info-row">
                     <div class="info-label">Advisor</div>
@@ -163,7 +212,7 @@ if (isset($_POST['update_club'])) {
                 <div class="info-row">
                     <div class="info-label">Status</div>
                     <div class="info-value">
-                        <?php if ($club['isActive'] == 1): ?>
+                        <?php if (isset($club['isActive']) && $club['isActive'] == 1): ?>
                             <span class="badge badge-secretary">Active</span>
                         <?php else: ?>
                             <span class="badge badge-treasurer">Inactive</span>
@@ -206,10 +255,21 @@ if (isset($_POST['update_club'])) {
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="3" style="text-align: center; color: #718096;">No committee members found.</td></tr>
+                    <tr><td colspan="3" class="no-data">No committee members found.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
+        <?php else: ?>
+        <div class="club-info-card">
+            <div class="club-header-bg">
+                <h1>No Club Assigned</h1>
+                <p>You have not been assigned to any club yet.</p>
+            </div>
+            <div class="club-body">
+                <p style="color: #718096; text-align: center; padding: 40px;">Please contact the administrator to be assigned to a club.</p>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 </body>
 </html>
