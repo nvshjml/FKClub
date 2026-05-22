@@ -38,29 +38,25 @@ session_start();
             <h2>FKClub Login</h2>
         </div>
         
-        <div class="card-body">
-            <?php if (isset($_GET['status']) && $_GET['status'] === 'logged_out'): ?>
-                <div class="alert">🔒 Session has ended. Please login again.</div>
-            <?php endif; ?>
+    <div class="card-body">
+    <?php if (isset($_GET['status']) && $_GET['status'] === 'logged_out'): ?>
+        <div class="alert">🔒 Session has ended. Please login again.</div>
+    <?php endif; ?>
 
-            <p class="instruction">Enter credentials to access dashboard</p>
-            
-            <form action="login_process.php" method="POST">
-                <div class="form-group">
-                    <label>Matrix ID</label>
-                    <input type="text" name="user_id" class="form-control" placeholder="e.g., CB26001" required>
-                </div>
-                
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" name="password" class="form-control" placeholder="••••••••" required>
-                </div>
-                
-                <button type="submit" name="login_btn" class="btn-primary">Login</button>
-            </form>
-            
-            <a href="public_register.php" class="register-link">Create an Account</a>
+    <p class="instruction">Enter credentials to access dashboard</p>
+    
+    <form action="login_process.php" method="POST">
+        <div class="form-group">
+            <label>Matrix ID</label>
+            <input type="text" name="user_id" class="form-control" placeholder="e.g., CB26001" required>
         </div>
+        
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+        </div>
+        
+        <button type="submit" name="login_btn" class="btn-primary">Login</button>
+    </form>
+    
     </div>
-</body>
-</html>

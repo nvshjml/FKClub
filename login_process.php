@@ -1,6 +1,7 @@
 <?php
 session_start(); 
-require 'db_connect.php'; 
+require 'db_connect.php';
+require 'session_timeout.php';
 
 if (isset($_POST['login_btn'])) {
     $user_id_input = $_POST['user_id'];
@@ -15,8 +16,10 @@ if (isset($_POST['login_btn'])) {
     if ($result->num_rows > 0) {
         $user = $result->fetch_assoc();
         
-        if ($password == $user['pass_hash']) {
+        // SECURE PASSWORD VERIFICATION
+        if (password_verify($password, $user['pass_hash'])) {
             
+            // Account Status Checks
             if ($user['account_status'] == 'Pending') {
                 echo "<script>alert('Your account is still waiting for Admin approval.'); window.location.href='index.php';</script>";
                 exit();
@@ -25,26 +28,27 @@ if (isset($_POST['login_btn'])) {
                 exit();
             }
 
+            // Set Session
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['name'] = $user['name'];
 
+            // Role-based Redirection
             if ($user['role'] == 'Admin') {
                 header("Location: admin_dashboard.php");
-                exit();
             } elseif ($user['role'] == 'Committee') {
                 header("Location: committee_dashboard.php");
-                exit();
             } else {
                 header("Location: student_dashboard.php");
-                exit();
             }
+            exit();
 
         } else {
-            echo "<script>alert('Incorrect Password!'); window.location.href='index.php';</script>";
+            // Generic message for both password/ID failure is safer against enumeration
+            echo "<script>alert('Invalid Matrix ID or Password!'); window.location.href='index.php';</script>";
         }
     } else {
-        echo "<script>alert('Matrix ID not found!'); window.location.href='index.php';</script>";
+        echo "<script>alert('Invalid Matrix ID or Password!'); window.location.href='index.php';</script>";
     }
 } else {
     header("Location: index.php");
