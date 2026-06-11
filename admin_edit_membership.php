@@ -2,7 +2,6 @@
 session_start();
 require 'db_connect.php';
 
-// SECURITY CHECK
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
     header("Location: index.php");
     exit();
@@ -14,18 +13,32 @@ $message = "";
 
 if (isset($_POST['update_membership'])) {
     $new_position = $_POST['position'];
-    $stmt = $conn->prepare("UPDATE committee SET position = ? WHERE user_id = ? AND club_id = ?");
-    $stmt->bind_param("ssi", $new_position, $user_id, $club_id);
-    if ($stmt->execute()) {
-        // Redirect back to the specific club's member list
-        header("Location: admin_manage_club.php?club_id=$club_id");
-        exit();
-    } else {
-        $message = "<div class='alert alert-error'>❌ Error updating position.</div>";
+    $can_update = true;
+
+    if ($new_position === 'President') {
+        $check_stmt = $conn->prepare("SELECT user_id FROM committee WHERE club_id = ? AND position = 'President' AND user_id != ?");
+        $check_stmt->bind_param("is", $club_id, $user_id);
+        $check_stmt->execute();
+        
+        if ($check_stmt->get_result()->num_rows > 0) {
+            $message = "<div class='alert alert-error'>❌ Error: This club already has a President. You cannot have two.</div>";
+            $can_update = false;
+        }
+    }
+
+    if ($can_update) {
+        $stmt = $conn->prepare("UPDATE committee SET position = ? WHERE user_id = ? AND club_id = ?");
+        $stmt->bind_param("ssi", $new_position, $user_id, $club_id);
+        
+        if ($stmt->execute()) {
+            header("Location: admin_manage_club.php?club_id=$club_id");
+            exit();
+        } else {
+            $message = "<div class='alert alert-error'>❌ Error updating position.</div>";
+        }
     }
 }
 
-// Fetch current data
 $member = $conn->query("SELECT position FROM committee WHERE user_id = '$user_id' AND club_id = $club_id")->fetch_assoc();
 $user_info = $conn->query("SELECT name FROM `USER` WHERE user_id = '$user_id'")->fetch_assoc();
 ?>

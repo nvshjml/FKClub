@@ -3,22 +3,56 @@ session_start();
 require 'db_connect.php';
 require 'session_timeout.php';
 
-// SECURITY CHECK
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') { header("Location: index.php"); exit(); }
 
 $msg = "";
 
-// ---------------------------------------------------------
-// HANDLE ASSIGNMENT 
-// ---------------------------------------------------------
 if (isset($_POST['assign_btn'])) {
-    $stmt = $conn->prepare("INSERT INTO committee (user_id, club_id, position) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $_POST['user_id'], $_POST['club_id'], $_POST['position']);
+    $user_id = $_POST['user_id'];
+    $club_id = $_POST['club_id'];
+    $position = $_POST['position'];
     
-    if($stmt->execute()) {
-        $msg = "<div class='alert alert-success'>✅ Role assigned successfully!</div>";
-    } else {
-        $msg = "<div class='alert alert-error'>❌ Error: " . $stmt->error . "</div>";
+    $can_assign = true;
+
+    if ($position === 'President') {
+        $check_stmt = $conn->prepare("SELECT user_id FROM committee WHERE club_id = ? AND position = 'President'");
+        $check_stmt->bind_param("s", $club_id);
+        $check_stmt->execute();
+        
+        if ($check_stmt->get_result()->num_rows > 0) {
+            $msg = "<div class='alert alert-error'>❌ Error: This club already has a President. Please demote or remove the current President first.</div>";
+            $can_assign = false;
+        }
+    }
+
+    if ($can_assign) {
+        $stmt = $conn->prepare("INSERT INTO committee (user_id, club_id, position) VALUES (?, ?, ?)");
+        $stmt->bind_param("sss", $user_id, $club_id, $position);
+        
+        if($stmt->execute()) {
+            $check_mem = $conn->prepare("SELECT status FROM club_membership WHERE user_id = ? AND club_id = ?");
+            $check_mem->bind_param("ss", $user_id, $club_id); 
+            $check_mem->execute();
+            $mem_result = $check_mem->get_result();
+            
+            if ($mem_result->num_rows == 0) {
+                $ins_mem = $conn->prepare("INSERT INTO club_membership (user_id, club_id, join_date, status) VALUES (?, ?, CURDATE(), 'Approved')");
+                $ins_mem->bind_param("ss", $user_id, $club_id);
+                $ins_mem->execute();
+            } else {
+                $upd_mem = $conn->prepare("UPDATE club_membership SET status = 'Approved' WHERE user_id = ? AND club_id = ?");
+                $upd_mem->bind_param("ss", $user_id, $club_id);
+                $upd_mem->execute();
+            }
+
+            $msg = "<div class='alert alert-success'>✅ Role assigned and added to club membership successfully!</div>";
+        } else {
+            if ($conn->errno == 1062) {
+                $msg = "<div class='alert alert-error'>❌ Error: This student is already in this club's committee. Edit their role from the 'Manage Club' page.</div>";
+            } else {
+                $msg = "<div class='alert alert-error'>❌ Error: " . $stmt->error . "</div>";
+            }
+        }
     }
 }
 
@@ -36,11 +70,9 @@ $clubs = $conn->query("SELECT club_id, club_name FROM CLUB");
         body { display: flex; background: #e2e8f0; min-height: 100vh; margin: 0; }
         .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; width: calc(100% - 260px); }
         
-        /* Page Header to match Manage Users */
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .page-header h2 { color: #1a202c; font-size: 24px; margin: 0; }
 
-        /* Slate-grey back button */
         .btn-back {
             display: inline-flex;
             align-items: center;
@@ -56,7 +88,6 @@ $clubs = $conn->query("SELECT club_id, club_name FROM CLUB");
         }
         .btn-back:hover { background: #4a5568; }
 
-        /* Form Card Styling */
         .card { background: white; max-width: 600px; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-top: 4px solid #3182ce; }
         .form-group { margin-bottom: 20px; }
         label { font-size: 14px; font-weight: 600; color: #4a5568; display: block; margin-bottom: 8px; }
