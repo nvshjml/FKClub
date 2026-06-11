@@ -3,13 +3,6 @@
 if (!isset($current_page)) {
     $current_page = basename($_SERVER['PHP_SELF']);
 }
-
-// Only query the pending count if the user is an Admin
-if (isset($_SESSION['role']) && $_SESSION['role'] == 'Admin' && !isset($sidebar_pending_count)) {
-    require_once 'db_connect.php';
-    $sidebar_stmt = $conn->query("SELECT COUNT(*) AS total FROM `USER` WHERE account_status = 'Pending' OR user_id IN (SELECT cm.user_id FROM CLUB_MEMBERSHIP cm WHERE cm.status = 'Pending')");
-    $sidebar_pending_count = $sidebar_stmt ? $sidebar_stmt->fetch_assoc()['total'] : 0;
-}
 ?>
 
 <style>
@@ -48,7 +41,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] == 'Admin' && !isset($sidebar_
             <a href="student_profile.php" class="<?php echo ($current_page == 'student_profile.php') ? 'active' : ''; ?>">My Profile</a>
             <a href="student_browse_clubs.php" class="<?php echo ($current_page == 'student_browse_clubs.php') ? 'active' : ''; ?>">Browse Clubs</a>
             <a href="student_event_registration.php" class="<?php echo ($current_page == 'student_event_registration.php') ? 'active' : ''; ?>">Event Registration</a>
-            <a href="committee_dashboard.php" class="<?php echo ($current_page == 'committee_dashboard.php') ? 'active' : ''; ?>">Club Management</a>
+            <a href="committee_club_management.php" class="<?php echo ($current_page == 'committee_club_management.php') ? 'active' : ''; ?>">Club Management</a>
             <a href="committee_events.php" class="<?php echo ($current_page == 'committee_events.php') ? 'active' : ''; ?>">Manage Events</a>
             <a href="committee_attendance.php" class="<?php echo ($current_page == 'committee_attendance.php') ? 'active' : ''; ?>">Record Attendance</a>
             

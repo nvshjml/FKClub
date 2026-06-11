@@ -34,7 +34,7 @@ if (isset($_POST['login_btn'])) {
             if ($user['role'] == 'Admin') {
                 header("Location: admin_dashboard.php");
             } elseif ($user['role'] == 'Committee') {
-                header("Location: committee_dashboard.php");
+                header("Location: student_dashboard.php");
             } else {
                 header("Location: student_dashboard.php");
             }
