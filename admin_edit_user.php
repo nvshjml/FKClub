@@ -90,8 +90,9 @@ if (isset($_POST['save_user'])) {
     <meta charset="UTF-8">
     <title>Edit User Profile</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
     <style>
-        /* Global Reset & Layout */
+        /* Essential Layout Safety Net */
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { background: #e2e8f0; display: flex; min-height: 100vh; }
         .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; }
@@ -201,9 +202,8 @@ if (isset($_POST['save_user'])) {
                     <div class="form-group">
                         <label>Account Status</label>
                         <select name="status">
-                            <option value="Approved" <?php if($user['account_status']=='Approved') echo 'selected'; ?>>Approved</option>
-                            <option value="Pending" <?php if($user['account_status']=='Pending') echo 'selected'; ?>>Pending</option>
-                            <option value="Rejected" <?php if($user['account_status']=='Rejected') echo 'selected'; ?>>Rejected</option>
+                            <option value="Active" <?php if($user['account_status']=='Active') echo 'selected'; ?>>Active</option>
+                            <option value="Inactive" <?php if($user['account_status']=='Inactive') echo 'selected'; ?>>Inactive</option>
                         </select>
                     </div>
                 </div>

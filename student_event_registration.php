@@ -13,60 +13,83 @@ $message = "";
 $message_type = "";
 
 // ---------------------------------------------------------
-// 1. HANDLE REGISTRATION (Fixed: No intval, string binding)
+// 1. HANDLE REGISTRATION (With Committee Blocker)
 // ---------------------------------------------------------
 if (isset($_GET['register']) && isset($_GET['event_id'])) {
     $event_id = $_GET['event_id']; // Treat as string (e.g., EVT260001)
 
-    // Check if already registered
-    $check_stmt = $conn->prepare("SELECT status FROM event_registration WHERE user_id = ? AND event_id = ?");
-    $check_stmt->bind_param("ss", $user_id, $event_id);
-    $check_stmt->execute();
-    $result = $check_stmt->get_result();
+    // --- NEW LOGIC: Block Committee Members from registering for their own events ---
+    
+    // Find which club is hosting this event
+    $club_check_stmt = $conn->prepare("SELECT club_id FROM event WHERE event_id = ?");
+    $club_check_stmt->bind_param("s", $event_id);
+    $club_check_stmt->execute();
+    $event_data = $club_check_stmt->get_result()->fetch_assoc();
+    $host_club_id = $event_data['club_id'];
 
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        if ($row['status'] == 'Cancelled') {
-            // Re-activate registration
-            $upd = $conn->prepare("UPDATE event_registration SET status = 'Registered', register_date = CURRENT_TIMESTAMP WHERE user_id = ? AND event_id = ?");
-            $upd->bind_param("ss", $user_id, $event_id);
-            $upd->execute();
-            $message = "You have successfully re-registered for the event!";
-            $message_type = "success";
-        } else {
-            $message = "You are already registered or waitlisted for this event.";
-            $message_type = "error";
-        }
+    // Check if the logged-in user is a committee member for THAT club
+    $committee_check_stmt = $conn->prepare("SELECT * FROM committee WHERE user_id = ? AND club_id = ?");
+    $committee_check_stmt->bind_param("ss", $user_id, $host_club_id);
+    $committee_check_stmt->execute();
+    $is_committee = $committee_check_stmt->get_result()->num_rows > 0;
+
+    if ($is_committee) {
+        // BLOCK THEM: Show error message
+        $message = "As a committee member of this club, you cannot register as a participant for your own events.";
+        $message_type = "error";
     } else {
-        // Check capacity for waitlisting
-        $cap_stmt = $conn->prepare("
-            SELECT max_cap, 
-            (SELECT COUNT(*) FROM event_registration WHERE event_id = e.event_id AND status = 'Registered') as current_reg 
-            FROM event e WHERE e.event_id = ?
-        ");
-        $cap_stmt->bind_param("s", $event_id);
-        $cap_stmt->execute();
-        $cap_data = $cap_stmt->get_result()->fetch_assoc();
+        // ALLOW THEM: Proceed with normal registration logic
+        
+        // Check if already registered
+        $check_stmt = $conn->prepare("SELECT status FROM event_registration WHERE user_id = ? AND event_id = ?");
+        $check_stmt->bind_param("ss", $user_id, $event_id);
+        $check_stmt->execute();
+        $result = $check_stmt->get_result();
 
-        $status = 'Registered';
-        if ($cap_data['max_cap'] > 0 && $cap_data['current_reg'] >= $cap_data['max_cap']) {
-            $status = 'Waitlisted';
-            $message = "Event is full. You have been added to the Waitlist.";
-            $message_type = "warning";
+        if ($result->num_rows > 0) {
+            $row = $result->fetch_assoc();
+            if ($row['status'] == 'Cancelled') {
+                // Re-activate registration
+                $upd = $conn->prepare("UPDATE event_registration SET status = 'Registered', register_date = CURRENT_TIMESTAMP WHERE user_id = ? AND event_id = ?");
+                $upd->bind_param("ss", $user_id, $event_id);
+                $upd->execute();
+                $message = "You have successfully re-registered for the event!";
+                $message_type = "success";
+            } else {
+                $message = "You are already registered or waitlisted for this event.";
+                $message_type = "error";
+            }
         } else {
-            $message = "Successfully registered for the event!";
-            $message_type = "success";
-        }
+            // Check capacity for waitlisting
+            $cap_stmt = $conn->prepare("
+                SELECT max_cap, 
+                (SELECT COUNT(*) FROM event_registration WHERE event_id = e.event_id AND status = 'Registered') as current_reg 
+                FROM event e WHERE e.event_id = ?
+            ");
+            $cap_stmt->bind_param("s", $event_id);
+            $cap_stmt->execute();
+            $cap_data = $cap_stmt->get_result()->fetch_assoc();
 
-        // Insert new registration
-        $ins = $conn->prepare("INSERT INTO event_registration (user_id, event_id, register_type, status) VALUES (?, ?, 'Participant', ?)");
-        $ins->bind_param("sss", $user_id, $event_id, $status);
-        $ins->execute();
+            $status = 'Registered';
+            if ($cap_data['max_cap'] > 0 && $cap_data['current_reg'] >= $cap_data['max_cap']) {
+                $status = 'Waitlisted';
+                $message = "Event is full. You have been added to the Waitlist.";
+                $message_type = "warning";
+            } else {
+                $message = "Successfully registered for the event!";
+                $message_type = "success";
+            }
+
+            // Insert new registration
+            $ins = $conn->prepare("INSERT INTO event_registration (user_id, event_id, register_type, status) VALUES (?, ?, 'Participant', ?)");
+            $ins->bind_param("sss", $user_id, $event_id, $status);
+            $ins->execute();
+        }
     }
 }
 
 // ---------------------------------------------------------
-// 2. HANDLE CANCELLATION (Fixed: No intval, string binding)
+// 2. HANDLE CANCELLATION 
 // ---------------------------------------------------------
 if (isset($_GET['cancel']) && isset($_GET['event_id'])) {
     $event_id = $_GET['event_id'];
@@ -116,11 +139,11 @@ $events_result = $stmt->get_result();
     <meta charset="UTF-8">
     <title>Event Registration</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css"> 
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { display: flex; background: #e2e8f0; min-height: 100vh; color: #333; }
-        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; width: calc(100% - 260px); }
-        
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; max-width: 1200px; }
         .welcome-card { background-color: white; padding: 25px 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; border-left: 6px solid #38a169; }
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
         .stat-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }

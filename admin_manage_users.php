@@ -21,9 +21,11 @@ if (isset($_POST['add_user_btn'])) {
     $phone = $_POST['phone'];
     $role = $_POST['role'];
     $password = password_hash("12345", PASSWORD_DEFAULT);
-    $status = 'Approved';
+    
+    // THE FIX 1: Set default status to 'Active' instead of 'Approved'
+    $status = 'Active';
 
-    // THE FIX: Set points to strictly integer 0 to prevent MySQL Type Errors
+    // Set points to strictly integer 0 to prevent MySQL Type Errors
     $starting_points = 0;
 
     $check_sql = "SELECT * FROM `user` WHERE user_id = ? OR email = ?";
@@ -37,13 +39,11 @@ if (isset($_POST['add_user_btn'])) {
         $insert_sql = "INSERT INTO `user` (user_id, role, name, email, pass_hash, phone, account_status, total_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt_insert = $conn->prepare($insert_sql);
         
-        // THE FIX: Changed the last parameter to "i" (Integer) to match the database
         $stmt_insert->bind_param("sssssssi", $new_id, $role, $name, $email, $password, $phone, $status, $starting_points);
         
         if ($stmt_insert->execute()) {
             $message = "<div class='alert alert-success'>✅ User registered successfully. Default password is '12345'.</div>";
         } else {
-            // THE FIX: If it fails, show the exact error!
             $message = "<div class='alert alert-error'>❌ Database Error: " . htmlspecialchars($stmt_insert->error) . "</div>";
         }
     }
@@ -84,12 +84,10 @@ $users_result = $conn->query($users_sql);
     <meta charset="UTF-8">
     <title>Manage Users</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        /* Global Reset & Layout */
+    <link rel="stylesheet" href="style.css"> <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
-        body { background: #e2e8f0; display: flex; min-height: 100vh; }
-        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; width: calc(100% - 260px)}
-        
+        body { display: flex; background: #e2e8f0; min-height: 100vh; color: #333; }
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; max-width: 1200px; }
         /* Header */
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .page-header h2 { color: #1a202c; font-size: 24px; margin: 0; }
@@ -185,7 +183,7 @@ $users_result = $conn->query($users_sql);
                                 <td><?php echo htmlspecialchars($u['email']); ?></td>
                                 <td><span class="badge"><?php echo htmlspecialchars($u['role']); ?></span></td>
                                 <td>
-                                    <span style="color: <?php echo $u['account_status'] == 'Approved' ? '#38a169' : ($u['account_status'] == 'Pending' ? '#dd6b20' : '#e53e3e'); ?>; font-weight: 600; font-size: 13px;">
+                                    <span style="color: <?php echo $u['account_status'] == 'Active' ? '#38a169' : '#e53e3e'; ?>; font-weight: 600; font-size: 13px;">
                                         <?php echo htmlspecialchars($u['account_status']); ?>
                                     </span>
                                 </td>
@@ -224,4 +222,4 @@ $users_result = $conn->query($users_sql);
         }
     </script>
 </body>
-</html> 
+</html>

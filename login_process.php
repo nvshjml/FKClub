@@ -19,12 +19,9 @@ if (isset($_POST['login_btn'])) {
         // SECURE PASSWORD VERIFICATION
         if (password_verify($password, $user['pass_hash'])) {
             
-            // Account Status Checks
-            if ($user['account_status'] == 'Pending') {
-                echo "<script>alert('Your account is still waiting for Admin approval.'); window.location.href='index.php';</script>";
-                exit();
-            } elseif ($user['account_status'] == 'Rejected') {
-                echo "<script>alert('Your registration was rejected by the Admin.'); window.location.href='index.php';</script>";
+            // --- THE FIX: NEW ACCOUNT STATUS CHECK ---
+            if ($user['account_status'] == 'Inactive') {
+                echo "<script>alert('Your account is currently inactive. Please contact the administrator.'); window.location.href='index.php';</script>";
                 exit();
             }
 
