@@ -12,35 +12,41 @@ $user_id = $_SESSION['user_id'];
 $message = "";
 $message_type = "";
 
-// ---------------------------------------------------------
-// 1. HANDLE REGISTRATION (With Committee Blocker)
-// ---------------------------------------------------------
-if (isset($_GET['register']) && isset($_GET['event_id'])) {
-    $event_id = $_GET['event_id']; // Treat as string (e.g., EVT260001)
+// FETCH USER DETAILS FOR THE MODAL
+$user_stmt = $conn->prepare("SELECT name, email, phone FROM `USER` WHERE user_id = ?");
+$user_stmt->bind_param("s", $user_id);
+$user_stmt->execute();
+$current_user = $user_stmt->get_result()->fetch_assoc();
 
-    // --- NEW LOGIC: Block Committee Members from registering for their own events ---
-    
-    // Find which club is hosting this event
+// ---------------------------------------------------------
+// 1. HANDLE REGISTRATION VIA MODAL FORM (POST)
+// ---------------------------------------------------------
+if (isset($_POST['confirm_registration']) && isset($_POST['event_id'])) {
+    $event_id = $_POST['event_id'];
+    $updated_phone = trim($_POST['phone']);
+
+    // UPDATE USER'S PHONE NUMBER FIRST
+    $upd_user = $conn->prepare("UPDATE `USER` SET phone = ? WHERE user_id = ?");
+    $upd_user->bind_param("ss", $updated_phone, $user_id);
+    $upd_user->execute();
+
+    // --- COMMITTEE BLOCKER LOGIC ---
     $club_check_stmt = $conn->prepare("SELECT club_id FROM event WHERE event_id = ?");
     $club_check_stmt->bind_param("s", $event_id);
     $club_check_stmt->execute();
     $event_data = $club_check_stmt->get_result()->fetch_assoc();
     $host_club_id = $event_data['club_id'];
 
-    // Check if the logged-in user is a committee member for THAT club
     $committee_check_stmt = $conn->prepare("SELECT * FROM committee WHERE user_id = ? AND club_id = ?");
     $committee_check_stmt->bind_param("ss", $user_id, $host_club_id);
     $committee_check_stmt->execute();
     $is_committee = $committee_check_stmt->get_result()->num_rows > 0;
 
     if ($is_committee) {
-        // BLOCK THEM: Show error message
         $message = "As a committee member of this club, you cannot register as a participant for your own events.";
         $message_type = "error";
     } else {
-        // ALLOW THEM: Proceed with normal registration logic
-        
-        // Check if already registered
+        // --- NORMAL REGISTRATION LOGIC ---
         $check_stmt = $conn->prepare("SELECT status FROM event_registration WHERE user_id = ? AND event_id = ?");
         $check_stmt->bind_param("ss", $user_id, $event_id);
         $check_stmt->execute();
@@ -49,7 +55,6 @@ if (isset($_GET['register']) && isset($_GET['event_id'])) {
         if ($result->num_rows > 0) {
             $row = $result->fetch_assoc();
             if ($row['status'] == 'Cancelled') {
-                // Re-activate registration
                 $upd = $conn->prepare("UPDATE event_registration SET status = 'Registered', register_date = CURRENT_TIMESTAMP WHERE user_id = ? AND event_id = ?");
                 $upd->bind_param("ss", $user_id, $event_id);
                 $upd->execute();
@@ -165,9 +170,10 @@ $events_result = $stmt->get_result();
         .capacity-bar-fill.full { background: #e53e3e; }
         .capacity-text { font-size: 12px; color: #4a5568; font-weight: 600; margin-bottom: 15px;}
 
-        .btn-action { display: block; width: 100%; text-align: center; padding: 10px; margin-top: auto; background: #3182ce; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; text-decoration: none; transition: 0.2s; }
+        .btn-action { display: block; width: 100%; text-align: center; padding: 10px; margin-top: auto; background: #3182ce; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; text-decoration: none; transition: 0.2s; font-size: 14px;}
         .btn-action:hover { background: #2b6cb0; }
         .btn-cancel { background: #e53e3e; }
+        .btn-cancel:hover { background: #c53030; }
         .btn-waitlist { background: #ed8936; cursor: default;}
         .btn-registered { background: #38a169; cursor: default;}
         
@@ -175,6 +181,20 @@ $events_result = $stmt->get_result();
         .alert-success { background-color: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
         .alert-error { background-color: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
         .alert-warning { background-color: #feebc8; color: #c05621; border: 1px solid #fbd38d; }
+
+        /* MODAL STYLES */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 2000; }
+        .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 450px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: scaleIn 0.2s ease-out; }
+        .modal-content h3 { margin-bottom: 5px; color: #1a202c; font-size: 20px;}
+        .modal-event-name { color: #3182ce; font-weight: 700; margin-bottom: 20px; font-size: 15px; border-bottom: 2px solid #edf2f7; padding-bottom: 10px;}
+        
+        .form-group { margin-bottom: 15px; text-align: left;}
+        .form-group label { display: block; font-weight: 600; font-size: 13px; color: #4a5568; margin-bottom: 5px;}
+        .form-group input { width: 100%; padding: 10px 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px; color: #2d3748; outline: none;}
+        .form-group input:focus { border-color: #3182ce; }
+        .form-group input:disabled { background: #f8fafc; color: #a0aec0; border-color: #edf2f7; cursor: not-allowed;}
+
+        @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -244,7 +264,7 @@ $events_result = $stmt->get_result();
                                 <a href="?cancel=1&event_id=<?php echo $event['event_id']; ?>" class="btn-action btn-cancel" style="flex: 1;" onclick="return confirm('Remove from waitlist?')">Cancel</a>
                             </div>
                         <?php else: ?>
-                            <a href="?register=1&event_id=<?php echo $event['event_id']; ?>" class="btn-action">Register</a>
+                            <button type="button" class="btn-action" onclick="openRegisterModal('<?php echo $event['event_id']; ?>', '<?php echo htmlspecialchars(addslashes($event['event_name'])); ?>')">Register Now</button>
                         <?php endif; ?>
                         </div>
                     </div>
@@ -252,5 +272,56 @@ $events_result = $stmt->get_result();
             <?php endwhile; ?>
         </div>
     </div>
+
+    <div id="registerModal" class="modal">
+        <div class="modal-content">
+            <h3>📋 Confirm Registration</h3>
+            <p class="modal-event-name" id="modalEventName"></p>
+            
+            <form method="POST" action="">
+                <input type="hidden" name="event_id" id="modalEventId">
+                
+                <div class="form-group">
+                    <label>Matrix ID</label>
+                    <input type="text" value="<?php echo htmlspecialchars($user_id); ?>" disabled>
+                </div>
+                
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" value="<?php echo htmlspecialchars($current_user['name']); ?>" disabled>
+                </div>
+
+                <div class="form-group">
+                    <label>Contact Number (Update if needed)</label>
+                    <input type="text" name="phone" value="<?php echo htmlspecialchars($current_user['phone'] ?? ''); ?>" required>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 25px;">
+                    <button type="submit" name="confirm_registration" class="btn-action" style="margin-top: 0; flex: 1;">Confirm Details</button>
+                    <button type="button" class="btn-action btn-cancel" onclick="closeRegisterModal()" style="margin-top: 0; flex: 1;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openRegisterModal(eventId, eventName) {
+            document.getElementById('modalEventId').value = eventId;
+            document.getElementById('modalEventName').innerText = "Event: " + eventName;
+            document.getElementById('registerModal').style.display = 'flex';
+        }
+
+        function closeRegisterModal() {
+            document.getElementById('registerModal').style.display = 'none';
+        }
+
+        // Close modal if user clicks outside the box
+        window.onclick = function(event) {
+            var modal = document.getElementById('registerModal');
+            if (event.target == modal) {
+                closeRegisterModal();
+            }
+        }
+    </script>
 </body>
 </html>
