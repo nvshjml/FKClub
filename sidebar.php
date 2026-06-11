@@ -7,18 +7,14 @@ if (!isset($current_page)) {
 // Only query the pending count if the user is an Admin
 if (isset($_SESSION['role']) && $_SESSION['role'] == 'Admin' && !isset($sidebar_pending_count)) {
     require_once 'db_connect.php';
-    $sidebar_stmt = $conn->query("SELECT COUNT(*) AS total FROM `USER` WHERE account_status = 'Pending'");
+    $sidebar_stmt = $conn->query("SELECT COUNT(*) AS total FROM `USER` WHERE account_status = 'Pending' OR user_id IN (SELECT cm.user_id FROM CLUB_MEMBERSHIP cm WHERE cm.status = 'Pending')");
     $sidebar_pending_count = $sidebar_stmt ? $sidebar_stmt->fetch_assoc()['total'] : 0;
 }
 ?>
 
 <style>
-    /* 1. GLOBAL LAYOUT - THIS PREVENTS THE OVERLAP! */
-    body { display: flex; background: #e2e8f0; min-height: 100vh; margin: 0; font-family: 'Inter', sans-serif; color: #333; }
-    .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; width: calc(100% - 260px); box-sizing: border-box; }
-
-    /* 2. SIDEBAR CSS ONLY */
-    .sidebar { width: 260px; background-color: #1a202c; color: white; display: flex; flex-direction: column; padding: 30px 20px; position: fixed; height: 100vh; box-shadow: 4px 0 10px rgba(0,0,0,0.1); z-index: 1000; top: 0; left: 0; box-sizing: border-box; }
+    /* GLOBAL SIDEBAR CSS */
+    .sidebar { width: 260px; background-color: #1a202c; color: white; display: flex; flex-direction: column; padding: 30px 20px; position: fixed; height: 100vh; box-shadow: 4px 0 10px rgba(0,0,0,0.1); z-index: 1000; top: 0; left: 0; box-sizing: border-box; font-family: 'Inter', sans-serif;}
     .sidebar-header { text-align: center; margin-bottom: 35px; }
     .sidebar-logo { max-width: 85px; margin-bottom: 12px; display: inline-block; }
     .sidebar-brand { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 6px; }
@@ -42,20 +38,19 @@ if (isset($_SESSION['role']) && $_SESSION['role'] == 'Admin' && !isset($sidebar_
     
     <div class="nav-links-sidebar">
         <?php if (isset($_SESSION['role']) && $_SESSION['role'] == 'Admin'): ?>
-            <a href="admin_dashboard.php" class="<?php echo ($current_page == 'admin_dashboard.php') ? 'active' : ''; ?>">Dashboard</a>
-            <a href="admin_manage_users.php" class="<?php echo ($current_page == 'admin_manage_users.php') ? 'active' : ''; ?>">Manage Users</a>
-            <a href="admin_attendance.php" class="<?php echo ($current_page == 'admin_attendance.php') ? 'active' : ''; ?>">QR & Attendance</a>
-            <a href="pending_approvals.php" class="<?php echo ($current_page == 'pending_approvals.php') ? 'active' : ''; ?>">
-                <span>Approvals</span>
-                <?php if(isset($sidebar_pending_count) && $sidebar_pending_count > 0): ?>
-                    <span class="badge-sidebar"><?php echo $sidebar_pending_count; ?></span>
-                <?php endif; ?>
-            </a>
+            <a href="admin_dashboard.php" class="<?php echo ($current_page == 'admin_dashboard.php') ? 'active' : ''; ?>">General Overview</a>
+            <a href="admin_club_analytics.php" class="<?php echo ($current_page == 'admin_club_analytics.php') ? 'active' : ''; ?>">Club Analytics</a>
+            <a href="admin_event_analytics.php" class="<?php echo ($current_page == 'admin_event_analytics.php') ? 'active' : ''; ?>">Event Analytics</a>
+            <a href="admin_attendance_reports.php" class="<?php echo ($current_page == 'admin_attendance_reports.php') ? 'active' : ''; ?>">Attendance Reports</a>
             
         <?php elseif (isset($_SESSION['role']) && $_SESSION['role'] == 'Committee'): ?>
-            <a href="committee_dashboard.php" class="<?php echo ($current_page == 'committee_dashboard.php') ? 'active' : ''; ?>">Dashboard</a>
+            <div style="padding: 10px 15px; color: #718096; font-size: 11px; text-transform: uppercase; font-weight: bold;">Student View</div>
+            <a href="student_dashboard.php" class="<?php echo ($current_page == 'student_dashboard.php') ? 'active' : ''; ?>">Dashboard</a>
             <a href="student_profile.php" class="<?php echo ($current_page == 'student_profile.php') ? 'active' : ''; ?>">My Profile</a>
-            <a href="committee_club_details.php" class="<?php echo ($current_page == 'committee_club_details.php') ? 'active' : ''; ?>">Club Details</a>
+            <a href="student_browse_clubs.php" class="<?php echo ($current_page == 'student_browse_clubs.php') ? 'active' : ''; ?>">Browse Clubs</a>
+            
+            <div style="padding: 10px 15px; color: #718096; font-size: 11px; text-transform: uppercase; font-weight: bold; margin-top: 10px;">Committee Actions</div>
+            <a href="committee_dashboard.php" class="<?php echo ($current_page == 'committee_dashboard.php') ? 'active' : ''; ?>">Club Management</a>
             <a href="committee_events.php" class="<?php echo ($current_page == 'committee_events.php') ? 'active' : ''; ?>">Manage Events</a>
             <a href="committee_attendance.php" class="<?php echo ($current_page == 'committee_attendance.php') ? 'active' : ''; ?>">Record Attendance</a>
             

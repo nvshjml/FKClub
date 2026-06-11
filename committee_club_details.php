@@ -13,7 +13,6 @@ $user_name = $_SESSION['name'];
 $message = "";
 $current_page = basename($_SERVER['PHP_SELF']);
 
-// Initialize club variables with default values
 $club_id = null;
 $club_name = "No Club Assigned";
 $position = "N/A";
@@ -25,13 +24,7 @@ $club = [
     'isActive' => 0
 ];
 
-// Get club info
-$stmt = $conn->prepare("
-    SELECT c.*, com.position 
-    FROM `committee` com 
-    JOIN `club` c ON com.club_id = c.club_id 
-    WHERE com.user_id = ?
-");
+$stmt = $conn->prepare("SELECT c.*, com.position FROM `committee` com JOIN `club` c ON com.club_id = c.club_id WHERE com.user_id = ?");
 $stmt->bind_param("s", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -42,52 +35,34 @@ if ($club_data && $club_data['club_id']) {
     $club_name = $club_data['club_name'];
     $position = $club_data['position'];
     $club = $club_data;
-} else {
-    $club_id = null;
-    $club_name = "No Club Assigned";
-    $position = "N/A";
 }
 
-// Get all committee members
 $committee_members = [];
 if ($club_id) {
-    $stmt2 = $conn->prepare("
-        SELECT u.name, u.user_id, com.position 
-        FROM `committee` com 
-        JOIN `user` u ON com.user_id = u.user_id 
-        WHERE com.club_id = ?
-        ORDER BY FIELD(com.position, 'President', 'Vice President', 'Secretary', 'Treasurer', 'Committee Member')
-    ");
+    $stmt2 = $conn->prepare("SELECT u.name, u.user_id, com.position FROM `committee` com JOIN `user` u ON com.user_id = u.user_id WHERE com.club_id = ? ORDER BY FIELD(com.position, 'President', 'Vice President', 'Secretary', 'Treasurer', 'Committee Member')");
     $stmt2->bind_param("i", $club_id);
     $stmt2->execute();
     $committee_members = $stmt2->get_result();
 }
 
-// Get member count
 $member_count = 0;
 if ($club_id) {
     $stmt3 = $conn->prepare("SELECT COUNT(*) as total FROM `club_membership` WHERE club_id = ? AND status = 'Approved'");
     $stmt3->bind_param("i", $club_id);
     $stmt3->execute();
     $result3 = $stmt3->get_result();
-    if ($result3) {
-        $member_count = $result3->fetch_assoc()['total'];
-    }
+    if ($result3) $member_count = $result3->fetch_assoc()['total'];
 }
 
-// Get event count for this club
 $event_count = 0;
 if ($club_id) {
     $stmt4 = $conn->prepare("SELECT COUNT(*) as total FROM `event` WHERE club_id = ?");
     $stmt4->bind_param("i", $club_id);
     $stmt4->execute();
     $result4 = $stmt4->get_result();
-    if ($result4) {
-        $event_count = $result4->fetch_assoc()['total'];
-    }
+    if ($result4) $event_count = $result4->fetch_assoc()['total'];
 }
 
-// Handle club description update
 if (isset($_POST['update_club']) && $club_id) {
     $new_description = trim($_POST['description']);
     $update_stmt = $conn->prepare("UPDATE `club` SET description = ? WHERE club_id = ?");
@@ -103,26 +78,15 @@ if (isset($_POST['update_club']) && $club_id) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Club Details</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { display: flex; background: #e2e8f0; min-height: 100vh; color: #333; }
         
-        /* Sidebar */
-        .sidebar { width: 260px; background-color: #1a202c; color: white; display: flex; flex-direction: column; padding: 30px 20px; position: fixed; height: 100vh; box-shadow: 4px 0 10px rgba(0,0,0,0.1); z-index: 1000; top: 0; left: 0;}
-        .sidebar-header { text-align: center; margin-bottom: 35px; }
-        .sidebar-logo { max-width: 85px; margin-bottom: 12px; display: inline-block; }
-        .sidebar-brand { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 6px; }
-        .sidebar-role { font-size: 11px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 1.5px; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; display: inline-block; }
-        .nav-links { display: flex; flex-direction: column; gap: 15px; flex-grow: 1; }
-        .nav-links a { text-decoration: none; color: #a0aec0; font-weight: 600; padding: 12px 15px; border-radius: 8px; transition: 0.3s; display: block; }
-        .nav-links a:hover, .nav-links a.active { background-color: #2d3748; color: white; }
-        .btn-logout { background-color: #e53e3e; color: white; text-align: center; text-decoration: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: auto; transition: 0.2s; }
-        .btn-logout:hover { background-color: #c53030; }
+        /* THIS FIXES THE LAYOUT SHIFT */
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; width: calc(100% - 260px); }
         
-        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; max-width: 1200px; width: calc(100% - 260px); }
         .welcome-card { background-color: white; padding: 25px 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; border-left: 6px solid #38a169; }
         .welcome-card h2 { color: #1a202c; margin-bottom: 5px; }
         .welcome-card p { color: #718096; }
@@ -164,21 +128,7 @@ if (isset($_POST['update_club']) && $club_id) {
 </head>
 <body>
 
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <img src="image/LogoUMP5.png" alt="UMPSA Logo" class="sidebar-logo">
-            <div class="sidebar-brand">FK Club System</div>
-            <div class="sidebar-role">COMMITTEE</div>
-        </div>
-        <div class="nav-links">
-            <a href="committee_dashboard.php">Dashboard</a>
-            <a href="committee_club_details.php" class="active">Club Details</a>
-            <a href="committee_events.php">Manage Events</a>
-            <a href="committee_attendance.php">Attendance</a>
-            <a href="committee_reports.php">Reports</a>
-        </div>
-        <a href="logout.php" class="btn-logout">Logout</a>
-    </div>
+    <?php include 'sidebar.php'; ?>
 
     <div class="main-content">
         <?php echo $message; ?>

@@ -7,6 +7,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Committee') {
 }
 
 $user_id = $_SESSION['user_id']; $user_name = $_SESSION['name'];
+$current_page = basename($_SERVER['PHP_SELF']);
 
 $stmt_club = $conn->prepare("SELECT c.club_id, c.club_name, c.description, c.advisor_name, com.position FROM `committee` com JOIN `club` c ON com.club_id = c.club_id WHERE com.user_id = ?");
 $stmt_club->bind_param("s", $user_id); $stmt_club->execute();
@@ -45,11 +46,15 @@ if ($club_id) {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
-        body { display: flex; background: #e2e8f0; min-height: 100vh; }
-        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; }
-        .welcome-card { background: white; padding: 25px 30px; border-radius: 12px; border-left: 6px solid #38a169; margin-bottom: 30px; }
+        body { display: flex; background: #e2e8f0; min-height: 100vh; color: #333;}
+        
+        /* THIS FIXES THE LAYOUT SHIFT */
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; width: calc(100% - 260px); }
+        
+        .welcome-card { background: white; padding: 25px 30px; border-radius: 12px; border-left: 6px solid #38a169; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .welcome-card h2 { color: #1a202c; margin-bottom: 5px; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-        .stat-card { background: white; padding: 20px; border-radius: 12px; text-align: center; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .stat-card h3 { color: #718096; font-size: 13px; text-transform: uppercase; }
         .stat-card .number { font-size: 2.5rem; font-weight: 700; color: #2d3748; margin-top: 10px; }
     </style>
@@ -61,7 +66,7 @@ if ($club_id) {
     <div class="main-content">
         <div class="welcome-card">
             <h2>Welcome, <?php echo htmlspecialchars($user_name); ?>! 🎉</h2>
-            <p><?php echo htmlspecialchars($position); ?> of <?php echo htmlspecialchars($club_name); ?></p>
+            <p style="color: #718096;"><?php echo htmlspecialchars($position); ?> of <?php echo htmlspecialchars($club_name); ?></p>
         </div>
 
         <div class="stats-grid">

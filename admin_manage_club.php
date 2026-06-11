@@ -1,7 +1,7 @@
 <?php
 session_start();
 require 'db_connect.php';
-require 'session_timeout.php'; // Added for consistency and security
+require 'session_timeout.php';
 
 // SECURITY CHECK
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
@@ -9,7 +9,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
     exit();
 }
 
-// Fetch the club name for the header safely
 $club_id = intval($_GET['club_id']); 
 $club = $conn->query("SELECT club_name FROM CLUB WHERE club_id = $club_id")->fetch_assoc();
 
@@ -17,7 +16,7 @@ $club = $conn->query("SELECT club_name FROM CLUB WHERE club_id = $club_id")->fet
 if (isset($_POST['remove_member'])) {
     $remove_id = $_POST['user_id'];
     $stmt = $conn->prepare("DELETE FROM committee WHERE user_id = ? AND club_id = ?");
-    $stmt->bind_param("si", $remove_id, $club_id);
+    $stmt->bind_param("ss", $remove_id, $club_id);
     $stmt->execute();
     $message = "<div class='alert alert-success'>✅ Member removed successfully.</div>";
 }
@@ -68,7 +67,7 @@ $members = $conn->query("SELECT u.user_id, u.name, c.position FROM committee c J
     <div class="main-content">
         <div class="page-header">
             <h2>👥 Members of: <?php echo htmlspecialchars($club['club_name']); ?></h2>
-            <a href="admin_dashboard.php" class="btn-back">← Back to Dashboard</a>
+            <a href="admin_club_analytics.php" class="btn-back">← Back</a>
         </div>
 
         <?php if(isset($message)) echo $message; ?>

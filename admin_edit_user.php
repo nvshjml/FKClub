@@ -19,7 +19,7 @@ if (isset($_GET['user_id'])) {
     $user = $stmt->get_result()->fetch_assoc();
 }
 
-// If no user found, redirect back to the correct users management page
+// If no user found, redirect back
 if (!$user) {
     header("Location: admin_manage_users.php");
     exit();
@@ -27,12 +27,57 @@ if (!$user) {
 
 // 3. HANDLE UPDATE SUBMISSION
 if (isset($_POST['save_user'])) {
+    $user_id_post = $_POST['user_id'];
+    $name = $_POST['name'];
+    $email = $_POST['email'];
+    $phone = $_POST['phone'];
+    $role = $_POST['role'];
+    $status = $_POST['status'];
+
+    // A. Update Base Profile Information
     $stmt = $conn->prepare("UPDATE `USER` SET name = ?, email = ?, phone = ?, role = ?, account_status = ? WHERE user_id = ?");
-    $stmt->bind_param("ssssss", $_POST['name'], $_POST['email'], $_POST['phone'], $_POST['role'], $_POST['status'], $_POST['user_id']);
+    $stmt->bind_param("ssssss", $name, $email, $phone, $role, $status, $user_id_post);
     
     if ($stmt->execute()) {
-        header("Location: admin_manage_users.php?msg=success");
-        exit();
+        
+        // B. Handle Optional Password Reset
+        if (!empty($_POST['new_password'])) {
+            $new_hash = password_hash($_POST['new_password'], PASSWORD_DEFAULT);
+            $stmt_pw = $conn->prepare("UPDATE `USER` SET pass_hash = ? WHERE user_id = ?");
+            $stmt_pw->bind_param("ss", $new_hash, $user_id_post);
+            $stmt_pw->execute();
+        }
+
+        // C. Handle Optional Profile Photo Upload
+        if (isset($_FILES['profile_photo']) && $_FILES['profile_photo']['error'] == UPLOAD_ERR_OK) {
+            // Ensure uploads directory exists
+            $upload_dir = 'uploads/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+
+            // Generate unique filename to prevent overwriting
+            $file_extension = pathinfo($_FILES['profile_photo']['name'], PATHINFO_EXTENSION);
+            $new_filename = $user_id_post . "_" . time() . "." . $file_extension;
+            $target_file = $upload_dir . $new_filename;
+
+            // Only allow specific image formats
+            $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
+            if (in_array(strtolower($file_extension), $allowed_types)) {
+                if (move_uploaded_file($_FILES["profile_photo"]["tmp_name"], $target_file)) {
+                    $stmt_photo = $conn->prepare("UPDATE `USER` SET profile_photo = ? WHERE user_id = ?");
+                    $stmt_photo->bind_param("ss", $new_filename, $user_id_post);
+                    $stmt_photo->execute();
+                }
+            } else {
+                $error = "Invalid file type. Only JPG, PNG, and GIF allowed.";
+            }
+        }
+
+        if (!isset($error)) {
+            header("Location: admin_manage_users.php?msg=success");
+            exit();
+        }
     } else {
         $error = "Update failed: " . $conn->error;
     }
@@ -48,7 +93,7 @@ if (isset($_POST['save_user'])) {
     <style>
         /* Global Reset & Layout */
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
-        body { background: #f4f7f6; display: flex; min-height: 100vh; }
+        body { background: #e2e8f0; display: flex; min-height: 100vh; }
         .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; }
         
         /* Header */
@@ -63,11 +108,11 @@ if (isset($_POST['save_user'])) {
         .btn-back:hover { background: #4a5568; }
 
         /* Form Card */
-        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); max-width: 600px; border-top: 4px solid #3182ce; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); max-width: 600px; border-top: 4px solid #3182ce; margin: auto; }
         .form-group { margin-bottom: 20px; }
         label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #4a5568; }
         
-        input[type="text"], input[type="email"], select { 
+        input[type="text"], input[type="email"], input[type="password"], input[type="file"], select { 
             width: 100%; 
             padding: 12px 15px; 
             border-radius: 8px; 
@@ -79,6 +124,10 @@ if (isset($_POST['save_user'])) {
             background-color: #fff; 
         }
         input:focus, select:focus { border-color: #3182ce; box-shadow: 0 0 0 3px rgba(49,130,206,0.1); }
+
+        /* Profile Photo Preview */
+        .photo-preview { display: flex; align-items: center; gap: 20px; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #edf2f7; }
+        .photo-preview img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #e2e8f0; }
 
         /* Alerts */
         .alert-error { background: #fed7d7; color: #822727; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; font-size: 14px; border: 1px solid #feb2b2; }
@@ -101,9 +150,23 @@ if (isset($_POST['save_user'])) {
             
             <?php if(isset($error)) echo "<div class='alert-error'>❌ $error</div>"; ?>
             
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['user_id']); ?>">
                 
+                <div class="photo-preview">
+                    <?php 
+                        $photo_path = !empty($user['profile_photo']) ? 'uploads/' . $user['profile_photo'] : 'uploads/default.png';
+                        // Fallback in case file doesn't actually exist on disk
+                        if (!file_exists($photo_path)) { $photo_path = 'uploads/default.png'; }
+                    ?>
+                    <img src="<?php echo htmlspecialchars($photo_path); ?>" alt="Profile Photo">
+                    <div style="flex-grow: 1;">
+                        <label>Update Profile Photo</label>
+                        <input type="file" name="profile_photo" accept="image/png, image/jpeg, image/gif">
+                        <small style="color: #718096; display: block; margin-top: 5px;">Leave blank to keep current photo. Max 2MB.</small>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label>Full Name</label>
                     <input type="text" name="name" value="<?php echo htmlspecialchars($user['name']); ?>" required>
@@ -117,6 +180,12 @@ if (isset($_POST['save_user'])) {
                 <div class="form-group">
                     <label>Phone Number</label>
                     <input type="text" name="phone" value="<?php echo htmlspecialchars($user['phone']); ?>">
+                </div>
+
+                <div class="form-group">
+                    <label>Reset Password</label>
+                    <input type="password" name="new_password" placeholder="Enter new password to reset">
+                    <small style="color: #718096; display: block; margin-top: 5px;">Leave this blank if you do not want to change the user's password.</small>
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">

@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Committee') {
 $user_id = $_SESSION['user_id'];
 $message = "";
 
-// 1. FIXED SQL AMBIGUITY: Added 'c.' before club_id so MySQL knows exactly which table to pull it from
+// 1. Get the Club ID for this Committee member
 $stmt = $conn->prepare("SELECT c.club_id, c.club_name FROM `committee` com JOIN `club` c ON com.club_id = c.club_id WHERE com.user_id = ?");
 $stmt->bind_param("s", $user_id);
 $stmt->execute();
@@ -31,7 +31,7 @@ if ($club_id) {
 if (isset($_POST['mark_attendance'])) {
     $register_id = intval($_POST['register_id']);
     $student_id = $_POST['student_id'];
-    $status = $_POST['status']; // 'Present', 'Late', or 'Absent'
+    $status = $_POST['status']; 
     
     // Check if attendance is already recorded for this registration
     $check = $conn->prepare("SELECT * FROM ATTENDANCE WHERE register_id = ?");
@@ -41,23 +41,26 @@ if (isset($_POST['mark_attendance'])) {
     if ($check->get_result()->num_rows > 0) {
         $message = "<div class='alert alert-error'>⚠️ Attendance already recorded for this student!</div>";
     } else {
-        // Determine Points based on rules
+        // Determine Points based on Module 4 Requirement 1d
         $points = 0;
         if ($status == 'Present') $points = 10;
         elseif ($status == 'Late') $points = 5;
+        elseif ($status == 'Volunteer') $points = 15; // 10 for present + 5 bonus
+        elseif ($status == 'Absent') $points = -10;   // Penalty
         
         // Insert into ATTENDANCE table
         $ins = $conn->prepare("INSERT INTO ATTENDANCE (register_id, start_time, attend_status, point_awarded) VALUES (?, NOW(), ?, ?)");
         $ins->bind_param("isi", $register_id, $status, $points);
         
         if ($ins->execute()) {
-            // Update Student's Total Points in USER table (Only if they earned points)
-            if ($points > 0) {
-                $upd = $conn->prepare("UPDATE `USER` SET total_point = total_point + ? WHERE user_id = ?");
-                $upd->bind_param("is", $points, $student_id);
-                $upd->execute();
-            }
-            $message = "<div class='alert alert-success'>✅ Attendance marked as <strong>$status</strong>. Points awarded: +$points</div>";
+            // Update Student's Total Points in USER table
+            // GREATEST(0, ...) ensures points never go below 0 if they get an absent penalty
+            $upd = $conn->prepare("UPDATE `USER` SET total_point = GREATEST(0, total_point + ?) WHERE user_id = ?");
+            $upd->bind_param("is", $points, $student_id);
+            $upd->execute();
+            
+            $point_text = ($points > 0) ? "+$points" : "$points";
+            $message = "<div class='alert alert-success'>✅ Attendance marked as <strong>$status</strong>. Points awarded: $point_text</div>";
         } else {
             $message = "<div class='alert alert-error'>❌ Error recording attendance.</div>";
         }
@@ -74,7 +77,7 @@ if ($selected_event_id) {
         FROM EVENT_REGISTRATION er
         JOIN `USER` u ON er.user_id = u.user_id
         LEFT JOIN ATTENDANCE a ON er.register_id = a.register_id
-        WHERE er.event_id = ? AND er.status != 'Cancelled'
+        WHERE er.event_id = ? AND er.status = 'Registered'
         ORDER BY u.name ASC
     ";
     $student_stmt = $conn->prepare($student_sql);
@@ -105,11 +108,13 @@ if ($selected_event_id) {
         th { background: #f8fafc; padding: 15px; text-align: left; font-weight: 600; color: #4a5568; border-bottom: 2px solid #e2e8f0; }
         td { padding: 15px; border-bottom: 1px solid #edf2f7; vertical-align: middle; color: #2d3748; }
         
-        .btn-attendance { padding: 8px 15px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; margin-right: 5px; transition: 0.2s; }
+        .btn-attendance { padding: 8px 12px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; margin-right: 4px; transition: 0.2s; }
         .btn-present { background: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
         .btn-present:hover { background: #9ae6b4; }
         .btn-late { background: #fefcbf; color: #744210; border: 1px solid #fbd38d; }
         .btn-late:hover { background: #fbd38d; }
+        .btn-volunteer { background: #ebf8ff; color: #2b6cb0; border: 1px solid #90cdf4; }
+        .btn-volunteer:hover { background: #90cdf4; }
         .btn-absent { background: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
         .btn-absent:hover { background: #feb2b2; }
         
@@ -177,7 +182,8 @@ if ($selected_event_id) {
                                                 
                                                 <button type="submit" name="status" value="Present" class="btn-attendance btn-present">Present (+10)</button>
                                                 <button type="submit" name="status" value="Late" class="btn-attendance btn-late">Late (+5)</button>
-                                                <button type="submit" name="status" value="Absent" class="btn-attendance btn-absent">Absent (0)</button>
+                                                <button type="submit" name="status" value="Volunteer" class="btn-attendance btn-volunteer">Volunteer (+15)</button>
+                                                <button type="submit" name="status" value="Absent" class="btn-attendance btn-absent">Absent (-10)</button>
                                                 <input type="hidden" name="mark_attendance" value="1">
                                             </form>
                                         <?php else: ?>
@@ -186,8 +192,10 @@ if ($selected_event_id) {
                                                     echo "<span class='status-badge btn-present'>✅ Present (+{$student['point_awarded']} pts)</span>";
                                                 } elseif ($student['attend_status'] == 'Late') {
                                                     echo "<span class='status-badge btn-late'>⚠️ Late (+{$student['point_awarded']} pts)</span>";
+                                                } elseif ($student['attend_status'] == 'Volunteer') {
+                                                    echo "<span class='status-badge btn-volunteer'>🤝 Volunteer (+{$student['point_awarded']} pts)</span>";
                                                 } else {
-                                                    echo "<span class='status-badge btn-absent'>❌ Absent</span>";
+                                                    echo "<span class='status-badge btn-absent'>❌ Absent ({$student['point_awarded']} pts)</span>";
                                                 }
                                             ?>
                                         <?php endif; ?>
@@ -197,7 +205,7 @@ if ($selected_event_id) {
                         </tbody>
                     </table>
                 <?php else: ?>
-                    <p style="color: #718096; font-style: italic; padding: 20px 0; background: #f8fafc; text-align: center; border-radius: 8px;">No students have registered for this event yet.</p>
+                    <p style="color: #718096; font-style: italic; padding: 20px 0; background: #f8fafc; text-align: center; border-radius: 8px;">No students are registered for this event yet.</p>
                 <?php endif; ?>
             </div>
         <?php endif; ?>

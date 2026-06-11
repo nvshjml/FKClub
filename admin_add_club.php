@@ -15,7 +15,6 @@ if (isset($_POST['add_club_btn'])) {
     $club_name = trim($_POST['club_name']);
     $isActive = $_POST['isActive'];
 
-    // Check if club name already exists
     $check_stmt = $conn->prepare("SELECT club_id FROM CLUB WHERE club_name = ?");
     $check_stmt->bind_param("s", $club_name);
     $check_stmt->execute();
@@ -23,7 +22,6 @@ if (isset($_POST['add_club_btn'])) {
     if ($check_stmt->get_result()->num_rows > 0) {
         $msg = "<div class='alert alert-error'>❌ Error: A club with this name already exists.</div>";
     } else {
-        // Insert new club
         $insert_stmt = $conn->prepare("INSERT INTO CLUB (club_name, isActive) VALUES (?, ?)");
         $insert_stmt->bind_param("si", $club_name, $isActive);
         
@@ -75,7 +73,7 @@ if (isset($_POST['add_club_btn'])) {
     <div class="main-content">
         <div class="page-header">
             <h2>🏆 Add New Club</h2>
-            <a href="admin_dashboard.php" class="btn-back">← Back to Dashboard</a>
+            <a href="admin_club_analytics.php" class="btn-back">← Back</a>
         </div>
 
         <div class="card">

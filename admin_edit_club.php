@@ -12,9 +12,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
 $msg = "";
 $club_id = isset($_GET['club_id']) ? intval($_GET['club_id']) : 0;
 
-// Redirect if no valid club ID is provided
 if ($club_id === 0) {
-    header("Location: admin_dashboard.php");
+    header("Location: admin_club_analytics.php");
     exit();
 }
 
@@ -33,14 +32,13 @@ if (isset($_POST['update_club_btn'])) {
     }
 }
 
-// Fetch current club details to pre-fill the form
 $stmt = $conn->prepare("SELECT * FROM CLUB WHERE club_id = ?");
 $stmt->bind_param("i", $club_id);
 $stmt->execute();
 $club = $stmt->get_result()->fetch_assoc();
 
 if (!$club) {
-    header("Location: admin_dashboard.php");
+    header("Location: admin_club_analytics.php");
     exit();
 }
 ?>
@@ -83,8 +81,8 @@ if (!$club) {
 
     <div class="main-content">
         <div class="page-header">
-            <h2>✏️ Edit Club</h2>
-            <a href="admin_dashboard.php" class="btn-back">← Back to Dashboard</a>
+            <h2>✏️ Edit Club Details</h2>
+            <a href="admin_club_analytics.php" class="btn-back">← Back</a>
         </div>
 
         <div class="card">
@@ -103,7 +101,7 @@ if (!$club) {
                     </select>
                 </div>
                 
-                <button type="submit" name="update_club_btn" class="btn-primary">Update Club Details</button>
+                <button type="submit" name="update_club_btn" class="btn-primary">Update Details</button>
             </form>
         </div>
     </div>
