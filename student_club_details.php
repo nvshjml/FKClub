@@ -2,8 +2,8 @@
 session_start();
 require 'db_connect.php';
 
-// SECURITY CHECK
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] == 'Admin') {
+// SECURITY CHECK - Ensure user is logged in and not an Admin
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] === 'Admin') {
     header("Location: index.php");
     exit();
 }
@@ -15,12 +15,13 @@ if (!isset($_GET['club_id'])) {
     exit();
 }
 
-$club_id = intval($_GET['club_id']);
+// FIX: Do NOT use intval() here since your IDs are alphanumeric strings (e.g., 'CLB001')
+$club_id = trim($_GET['club_id']);
 
 // Fetch Club Details
 $club_sql = "SELECT * FROM CLUB WHERE club_id = ? AND isActive = 1";
 $stmt = $conn->prepare($club_sql);
-$stmt->bind_param("i", $club_id);
+$stmt->bind_param("s", $club_id); // Changed bind type from "i" to "s"
 $stmt->execute();
 $club = $stmt->get_result()->fetch_assoc();
 
@@ -38,21 +39,21 @@ $committee_sql = "
     ORDER BY FIELD(c.position, 'President', 'Vice President', 'Secretary', 'Treasurer', 'Committee Member')
 ";
 $stmt = $conn->prepare($committee_sql);
-$stmt->bind_param("i", $club_id);
+$stmt->bind_param("s", $club_id); // Changed bind type from "i" to "s"
 $stmt->execute();
 $committee_members = $stmt->get_result();
 
 // Fetch Upcoming Events
 $upcoming_sql = "SELECT * FROM EVENT WHERE club_id = ? AND date >= CURDATE() ORDER BY date ASC";
 $stmt = $conn->prepare($upcoming_sql);
-$stmt->bind_param("i", $club_id);
+$stmt->bind_param("s", $club_id); // Changed bind type from "i" to "s"
 $stmt->execute();
 $upcoming_events = $stmt->get_result();
 
 // Fetch Past Events
 $past_sql = "SELECT * FROM EVENT WHERE club_id = ? AND date < CURDATE() ORDER BY date DESC LIMIT 5";
 $stmt = $conn->prepare($past_sql);
-$stmt->bind_param("i", $club_id);
+$stmt->bind_param("s", $club_id); // Changed bind type from "i" to "s"
 $stmt->execute();
 $past_events = $stmt->get_result();
 ?>
@@ -120,7 +121,6 @@ $past_events = $stmt->get_result();
 
         <div class="layout-grid">
             <div class="left-col">
-                <!-- Upcoming Events -->
                 <div class="section-card">
                     <div class="section-title">📅 Upcoming Events</div>
                     <div class="event-list">
@@ -144,7 +144,6 @@ $past_events = $stmt->get_result();
                     </div>
                 </div>
 
-                <!-- Past Events -->
                 <div class="section-card">
                     <div class="section-title">🕰️ Past Events</div>
                     <div class="event-list">
@@ -166,7 +165,6 @@ $past_events = $stmt->get_result();
             </div>
 
             <div class="right-col">
-                <!-- Committee Members -->
                 <div class="section-card">
                     <div class="section-title">👥 Club Committee</div>
                     <ul class="committee-list">
