@@ -13,18 +13,31 @@ $message = "";
 $edit_event = null;
 $current_page = basename($_SERVER['PHP_SELF']);
 
+// 1. FETCH CLUB & POSITION
 $stmt = $conn->prepare("SELECT c.club_id, c.club_name, com.position FROM `committee` com JOIN `club` c ON com.club_id = c.club_id WHERE com.user_id = ?");
 $stmt->bind_param("s", $user_id);
 $stmt->execute();
 $club = $stmt->get_result()->fetch_assoc();
 
+$is_authorized = false;
+
 if (!$club) {
     $club_id = null; $club_name = "No Club Assigned";
 } else {
-    $club_id = $club['club_id']; $club_name = $club['club_name'];
+    $club_id = $club['club_id']; 
+    $club_name = $club['club_name'];
+    
+    // 2. CHECK HIGH AUTHORITY
+    $high_authority = ['President', 'Vice President', 'Secretary', 'Treasurer'];
+    if (in_array($club['position'], $high_authority)) {
+        $is_authorized = true;
+    } else {
+        $message = "<div style='background:#fed7d7; color:#822727; padding:15px; border-radius:8px; margin-bottom:20px; font-weight:600;'>⚠️ Access Denied: Your role (" . htmlspecialchars($club['position']) . ") does not have permission to manage events. Only high-ranking committee members can access this feature.</div>";
+    }
 }
 
-if (isset($_POST['create_event'])) {
+// ONLY RUN THESE ACTIONS IF THEY ARE AUTHORIZED
+if (isset($_POST['create_event']) && $is_authorized) {
     $event_name = trim($_POST['event_name']);
     $date = $_POST['date'];
     $time = $_POST['time'];
@@ -43,7 +56,7 @@ if (isset($_POST['create_event'])) {
     }
 }
 
-if (isset($_POST['update_event'])) {
+if (isset($_POST['update_event']) && $is_authorized) {
     $event_id = intval($_POST['event_id']);
     $event_name = trim($_POST['event_name']);
     $date = $_POST['date'];
@@ -63,7 +76,7 @@ if (isset($_POST['update_event'])) {
     }
 }
 
-if (isset($_POST['delete_event'])) {
+if (isset($_POST['delete_event']) && $is_authorized) {
     $event_id = intval($_POST['event_id']);
     $check_stmt = $conn->prepare("SELECT COUNT(*) as cnt FROM `event_registration` WHERE event_id = ?");
     $check_stmt->bind_param("i", $event_id);
@@ -81,7 +94,7 @@ if (isset($_POST['delete_event'])) {
     }
 }
 
-if (isset($_GET['edit_id'])) {
+if (isset($_GET['edit_id']) && $is_authorized) {
     $edit_id = intval($_GET['edit_id']);
     $edit_stmt = $conn->prepare("SELECT * FROM `event` WHERE event_id = ? AND club_id = ?");
     $edit_stmt->bind_param("ii", $edit_id, $club_id);
@@ -90,7 +103,8 @@ if (isset($_GET['edit_id'])) {
 }
 
 $events = [];
-if ($club_id) {
+// ONLY FETCH EVENTS IF AUTHORIZED
+if ($club_id && $is_authorized) {
     $events_stmt = $conn->prepare("SELECT e.*, (SELECT COUNT(*) FROM `event_registration` WHERE event_id = e.event_id) AS registered_count FROM `event` e WHERE e.club_id = ? ORDER BY e.date ASC");
     $events_stmt->bind_param("i", $club_id);
     $events_stmt->execute();
@@ -104,11 +118,10 @@ if ($club_id) {
     <meta charset="UTF-8">
     <title>Manage Events</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css"> 
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { display: flex; background: #e2e8f0; min-height: 100vh; }
-        
-        /* THIS FIXES THE LAYOUT SHIFT */
         .main-content { margin-left: 260px; padding: 40px; width: calc(100% - 260px); }
         
         .welcome-card { background: white; padding: 25px 30px; border-radius: 12px; margin-bottom: 30px; border-left: 6px solid #38a169; box-shadow: 0 4px 6px rgba(0,0,0,0.05);}
@@ -154,10 +167,12 @@ if ($club_id) {
     
     <div class="welcome-card">
         <h2>📅 Manage Events</h2>
-        <p><?php echo htmlspecialchars($club_name); ?> • Create, edit, and delete events</p>
+        <p><?php echo htmlspecialchars($club_name); ?> • <?php echo $is_authorized ? "Create, edit, and delete events" : "View access restricted."; ?></p>
     </div>
 
-    <button class="btn-create" onclick="openCreateModal()">+ Create New Event</button>
+    <?php if ($is_authorized): ?>
+        <button class="btn-create" onclick="openCreateModal()">+ Create New Event</button>
+    <?php endif; ?>
 
     <div class="grid-container">
         <?php if ($events && $events->num_rows > 0): ?>
@@ -199,9 +214,11 @@ if ($club_id) {
                 </div>
             <?php endwhile; ?>
         <?php else: ?>
-            <div style="background:#f7fafc; padding:60px; text-align:center; border-radius:12px; color:#718096; grid-column: 1 / -1;">
-                No events yet. Click "Create New Event" to get started!
-            </div>
+            <?php if ($is_authorized): ?>
+                <div style="background:#f7fafc; padding:60px; text-align:center; border-radius:12px; color:#718096; grid-column: 1 / -1;">
+                    No events yet. Click "Create New Event" to get started!
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

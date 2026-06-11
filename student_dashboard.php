@@ -24,7 +24,7 @@ $stmt3 = $conn->prepare("SELECT COUNT(*) AS total FROM EVENT_REGISTRATION WHERE 
 $stmt3->bind_param("s", $user_id); $stmt3->execute();
 $total_events = $stmt3->get_result()->fetch_assoc()['total'];
 
-$events_sql = "SELECT event_id, event_name, date, time, venue, qr_token FROM EVENT WHERE date >= CURDATE() ORDER BY date ASC";
+$events_sql = "SELECT e.event_id, e.event_name, e.date, e.time, e.venue, e.qr_token, c.club_name FROM EVENT e JOIN CLUB c ON e.club_id = c.club_id WHERE e.date >= CURDATE() ORDER BY e.date ASC";
 $events_result = $conn->query($events_sql);
 
 $clubs_sql = "SELECT c.club_id, c.club_name, u.name AS president_name FROM CLUB c LEFT JOIN COMMITTEE com ON c.club_id = com.club_id AND com.position = 'President' LEFT JOIN `USER` u ON com.user_id = u.user_id WHERE c.isActive = 1";
@@ -86,6 +86,9 @@ $clubs_result = $conn->query($clubs_sql);
                         <img src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=500&q=80" class="item-image" alt="Event">
                         <div class="item-content">
                             <div class="item-title"><?php echo htmlspecialchars($event['event_name']); ?></div>
+                            
+                            <div class="item-detail">🏛️ <strong><?php echo htmlspecialchars($event['club_name']); ?></strong></div>
+                            
                             <div class="item-detail">📅 <?php echo date("d M Y", strtotime($event['date'])); ?></div>
                             <div class="item-detail">⏰ <?php echo date("h:i A", strtotime($event['time'])); ?></div>
                             <div class="item-detail">📍 <?php echo htmlspecialchars($event['venue']); ?></div>
