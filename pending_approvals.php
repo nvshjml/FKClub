@@ -18,28 +18,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 $message = "";
 
 // ---------------------------------------------------------
-// 1. HANDLE SYSTEM ACCOUNT APPROVALS
-// ---------------------------------------------------------
-if (isset($_POST['approve_user'])) {
-    $target_id = $_POST['target_user_id'];
-    $stmt = $conn->prepare("UPDATE `USER` SET account_status = 'Approved' WHERE user_id = ?");
-    $stmt->bind_param("s", $target_id);
-    if ($stmt->execute()) {
-        $message = "<div class='alert alert-success'>✅ User account <strong>$target_id</strong> has been approved!</div>";
-    }
-}
-
-if (isset($_POST['reject_user'])) {
-    $target_id = $_POST['target_user_id'];
-    $stmt = $conn->prepare("UPDATE `USER` SET account_status = 'Rejected' WHERE user_id = ?");
-    $stmt->bind_param("s", $target_id);
-    if ($stmt->execute()) {
-        $message = "<div class='alert alert-error'>❌ User account <strong>$target_id</strong> has been rejected.</div>";
-    }
-}
-
-// ---------------------------------------------------------
-// 2. HANDLE CLUB MEMBERSHIP APPROVALS (Updated for Composite Keys)
+// 1. HANDLE CLUB MEMBERSHIP APPROVALS 
 // ---------------------------------------------------------
 if (isset($_POST['approve_club'])) {
     $m_user_id = $_POST['member_user_id'];
@@ -52,23 +31,21 @@ if (isset($_POST['approve_club'])) {
     }
 }
 
+// FIXED: Now deletes the record from the database completely instead of keeping it as 'Rejected'
 if (isset($_POST['reject_club'])) {
     $m_user_id = $_POST['member_user_id'];
     $m_club_id = $_POST['member_club_id'];
     
-    $stmt = $conn->prepare("UPDATE club_membership SET status = 'Rejected' WHERE user_id = ? AND club_id = ?");
+    $stmt = $conn->prepare("DELETE FROM club_membership WHERE user_id = ? AND club_id = ?");
     $stmt->bind_param("ss", $m_user_id, $m_club_id);
     if ($stmt->execute()) {
-        $message = "<div class='alert alert-error'>❌ Club membership rejected for <strong>$m_user_id</strong>.</div>";
+        $message = "<div class='alert alert-error'>❌ Club membership rejected and removed from database for <strong>$m_user_id</strong>.</div>";
     }
 }
 
 // ---------------------------------------------------------
-// 3. FETCH PENDING DATA
+// 2. FETCH PENDING DATA
 // ---------------------------------------------------------
-$pending_users = $conn->query("SELECT user_id, name, email, role FROM `USER` WHERE account_status = 'Pending'");
-
-// FIXED: Removed cm.membership_id and selecting user_id + club_id instead
 $pending_clubs_sql = "
     SELECT cm.user_id, cm.club_id, u.name, c.club_name, cm.join_date 
     FROM club_membership cm 
@@ -79,7 +56,7 @@ $pending_clubs_sql = "
 ";
 $pending_clubs = $conn->query($pending_clubs_sql);
 
-$total_pending = ($pending_users ? $pending_users->num_rows : 0) + ($pending_clubs ? $pending_clubs->num_rows : 0);
+$total_pending = ($pending_clubs ? $pending_clubs->num_rows : 0);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -135,48 +112,6 @@ $total_pending = ($pending_users ? $pending_users->num_rows : 0) + ($pending_clu
         </div>
 
         <?php echo $message; ?>
-
-        <div class="section-header">
-            <h2>👤 New User Accounts <?php if($pending_users && $pending_users->num_rows > 0) echo "<span class='badge-count'>".$pending_users->num_rows."</span>"; ?></h2>
-        </div>
-        <div class="table-card">
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Matrix ID</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if ($pending_users && $pending_users->num_rows > 0): ?>
-                            <?php while($user = $pending_users->fetch_assoc()): ?>
-                                <tr>
-                                    <td><strong><?php echo htmlspecialchars($user['user_id']); ?></strong></td>
-                                    <td><?php echo htmlspecialchars($user['name']); ?></td>
-                                    <td><?php echo htmlspecialchars($user['email']); ?></td>
-                                    <td><span style="background:#edf2f7; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:600;"><?php echo htmlspecialchars($user['role']); ?></span></td>
-                                    <td>
-                                        <div class="action-links">
-                                            <form method="POST" style="margin:0;">
-                                                <input type="hidden" name="target_user_id" value="<?php echo $user['user_id']; ?>">
-                                                <button type="submit" name="approve_user" class="btn-sm btn-approve">Approve</button>
-                                                <button type="submit" name="reject_user" class="btn-sm btn-reject" onclick="return confirm('Reject this account?');">Reject</button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endwhile; ?>
-                        <?php else: ?>
-                            <tr><td colspan="5" class="empty-state">No pending account registrations.</td></tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
 
         <div class="section-header">
             <h2>🏛️ Club Join Requests <?php if($pending_clubs && $pending_clubs->num_rows > 0) echo "<span class='badge-count'>".$pending_clubs->num_rows."</span>"; ?></h2>

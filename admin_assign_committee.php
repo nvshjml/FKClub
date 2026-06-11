@@ -14,7 +14,26 @@ if (isset($_POST['assign_btn'])) {
     
     $can_assign = true;
 
-    if ($position === 'President') {
+    // 1. Check 3-Club Maximum Limit
+    $check_existing_club = $conn->prepare("SELECT status FROM club_membership WHERE user_id = ? AND club_id = ?");
+    $check_existing_club->bind_param("ss", $user_id, $club_id);
+    $check_existing_club->execute();
+    $is_already_in_club = $check_existing_club->get_result()->num_rows > 0;
+
+    if (!$is_already_in_club) {
+        $count_stmt = $conn->prepare("SELECT COUNT(*) AS total FROM club_membership WHERE user_id = ? AND status IN ('Approved', 'Pending')");
+        $count_stmt->bind_param("s", $user_id);
+        $count_stmt->execute();
+        $current_count = $count_stmt->get_result()->fetch_assoc()['total'];
+
+        if ($current_count >= 3) {
+            $msg = "<div class='alert alert-error'>❌ Error: This student has already reached the maximum limit of joining 3 clubs.</div>";
+            $can_assign = false;
+        }
+    }
+
+    // 2. Check if a President already exists for this club
+    if ($can_assign && $position === 'President') {
         $check_stmt = $conn->prepare("SELECT user_id FROM committee WHERE club_id = ? AND position = 'President'");
         $check_stmt->bind_param("s", $club_id);
         $check_stmt->execute();
@@ -25,11 +44,14 @@ if (isset($_POST['assign_btn'])) {
         }
     }
 
+    // 3. Proceed with assignment & Auto-Sync
     if ($can_assign) {
         $stmt = $conn->prepare("INSERT INTO committee (user_id, club_id, position) VALUES (?, ?, ?)");
         $stmt->bind_param("sss", $user_id, $club_id, $position);
         
         if($stmt->execute()) {
+            
+            // Auto-Sync to club_membership
             $check_mem = $conn->prepare("SELECT status FROM club_membership WHERE user_id = ? AND club_id = ?");
             $check_mem->bind_param("ss", $user_id, $club_id); 
             $check_mem->execute();

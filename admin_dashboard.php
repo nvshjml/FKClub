@@ -3,7 +3,6 @@ session_start();
 require 'db_connect.php';
 require 'session_timeout.php';
 
-// Force no-cache
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
@@ -15,26 +14,18 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
 
 $current_page = basename($_SERVER['PHP_SELF']);
 
-// ---------------------------------------------------------
-// FETCH MODULE 1 SUMMARY STATISTICS (Req 4a)
-// ---------------------------------------------------------
 $total_students = $conn->query("SELECT COUNT(*) AS total FROM `USER` WHERE role IN ('Student', 'Committee') AND account_status = 'Approved'")->fetch_assoc()['total'];
 $total_clubs = $conn->query("SELECT COUNT(*) AS total FROM CLUB WHERE isActive = 1")->fetch_assoc()['total'] ?? 0;
 $total_events = $conn->query("SELECT COUNT(*) AS total FROM EVENT WHERE date >= CURDATE()")->fetch_assoc()['total'] ?? 0;
-$pending_users = $conn->query("SELECT COUNT(*) AS total FROM `USER` WHERE account_status = 'Pending'")->fetch_assoc()['total'];
 
-// ---------------------------------------------------------
-// FETCH MODULE 1 CHARTS (Req 4b)
-// ---------------------------------------------------------
+// FIXED: Count pending club memberships instead of pending users
+$pending_approvals_query = $conn->query("SELECT COUNT(*) AS total FROM CLUB_MEMBERSHIP WHERE status = 'Pending'");
+$pending_approvals = $pending_approvals_query ? $pending_approvals_query->fetch_assoc()['total'] : 0;
+
 $role_query = $conn->query("SELECT role, COUNT(*) as count FROM `USER` GROUP BY role");
 $role_labels = []; $role_data = [];
 while($row = $role_query->fetch_assoc()) { $role_labels[] = $row['role']; $role_data[] = $row['count']; }
 
-$status_query = $conn->query("SELECT account_status, COUNT(*) as count FROM `USER` GROUP BY account_status");
-$status_labels = []; $status_data = [];
-while($row = $status_query->fetch_assoc()) { $status_labels[] = $row['account_status']; $status_data[] = $row['count']; }
-
-// Fetch Recent Users (Req 4a iv)
 $recent_users_sql = "SELECT user_id, name, email, account_status, role FROM `USER` ORDER BY user_id DESC LIMIT 5";
 $recent_users_result = $conn->query($recent_users_sql);
 ?>
@@ -53,13 +44,11 @@ $recent_users_result = $conn->query($recent_users_sql);
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;}
         .page-header h1 { color: #1a202c; font-size: 28px; font-weight: 700; }
         
-        /* Stats Grid */
         .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
         .stat-card { background: white; padding: 25px 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; border-bottom: 4px solid #3182ce; }
         .stat-card h3 { color: #718096; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
         .stat-card .number { font-size: 32px; font-weight: 800; color: #2d3748; }
 
-        /* Quick Action Hubs */
         .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
         .action-card { background: white; border-radius: 12px; padding: 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 15px;}
         .action-card div h3 { font-size: 18px; color: #2d3748; margin-bottom: 5px; }
@@ -69,17 +58,14 @@ $recent_users_result = $conn->query($recent_users_sql);
         .btn-hub-warning { background: #dd6b20; }
         .btn-hub-warning:hover { background: #c05621; }
         
-        /* Charts Grid */
         .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
         .chart-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .chart-card h3 { color: #2d3748; font-size: 16px; margin-bottom: 20px; border-bottom: 2px solid #edf2f7; padding-bottom: 10px;}
         .chart-container { position: relative; height: 250px; width: 100%; }
 
-        /* Tables */
         .table-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 30px; }
         .table-header { background: #f8fafc; padding: 20px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #2d3748; font-size: 16px;}
         
-        /* FIX: Scrollable wrapper for the table */
         .table-responsive { width: 100%; overflow-x: auto; }
         
         table { width: 100%; border-collapse: collapse; text-align: left; min-width: 600px; }
@@ -90,7 +76,6 @@ $recent_users_result = $conn->query($recent_users_sql);
         .status-pending { background: #feebc8; color: #744210; }
         .status-rejected { background: #fed7d7; color: #822727; }
 
-        /* FIX: Responsive Design for Smaller Screens */
         @media (max-width: 1024px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .charts-grid { grid-template-columns: 1fr; }
@@ -113,14 +98,14 @@ $recent_users_result = $conn->query($recent_users_sql);
     <div class="main-content">
         <div class="page-header">
             <h1>General User Overview</h1>
-            <span style="color: #718096; font-weight: 500; background: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">Admin: Saiful</span>
+            <span style="color: #718096; font-weight: 500; background: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">Admin: <?php echo htmlspecialchars($_SESSION['name']); ?></span>
         </div>
         
         <div class="stats-grid">
             <div class="stat-card"><h3>Registered Students</h3><div class="number"><?php echo $total_students; ?></div></div>
             <div class="stat-card" style="border-bottom-color: #38a169;"><h3>Active Clubs</h3><div class="number"><?php echo $total_clubs; ?></div></div>
             <div class="stat-card" style="border-bottom-color: #805ad5;"><h3>Upcoming Events</h3><div class="number"><?php echo $total_events; ?></div></div>
-            <div class="stat-card" style="border-bottom-color: #dd6b20;"><h3>Pending Approvals</h3><div class="number"><?php echo $pending_users; ?></div></div>
+            <div class="stat-card" style="border-bottom-color: #dd6b20;"><h3>Pending Approvals</h3><div class="number"><?php echo $pending_approvals; ?></div></div>
         </div>
 
         <div class="action-grid">
@@ -136,7 +121,7 @@ $recent_users_result = $conn->query($recent_users_sql);
                     <h3>System Approvals</h3>
                     <p>Review and approve new student accounts and club join requests.</p>
                 </div>
-                <a href="pending_approvals.php" class="btn-hub btn-hub-warning">Review Approvals (<?php echo $pending_users; ?>)</a>
+                <a href="pending_approvals.php" class="btn-hub btn-hub-warning">Review Approvals (<?php echo $pending_approvals; ?>)</a>
             </div>
         </div>
 
@@ -144,10 +129,6 @@ $recent_users_result = $conn->query($recent_users_sql);
             <div class="chart-card">
                 <h3>👥 System Users by Role</h3>
                 <div class="chart-container"><canvas id="roleChart"></canvas></div>
-            </div>
-            <div class="chart-card">
-                <h3>🔒 Registration Statuses</h3>
-                <div class="chart-container"><canvas id="statusChart"></canvas></div>
             </div>
         </div>
 
@@ -191,12 +172,6 @@ $recent_users_result = $conn->query($recent_users_sql);
             type: 'bar', 
             data: { labels: <?php echo json_encode($role_labels); ?>, datasets: [{ label: 'Users', data: <?php echo json_encode($role_data); ?>, backgroundColor: ['#3182ce', '#805ad5', '#38a169'], borderRadius: 6 }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-        });
-
-        new Chart(document.getElementById('statusChart'), { 
-            type: 'doughnut', 
-            data: { labels: <?php echo json_encode($status_labels); ?>, datasets: [{ data: <?php echo json_encode($status_data); ?>, backgroundColor: ['#38a169', '#dd6b20', '#e53e3e'], borderWidth: 0 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 20 } } }, cutout: '70%' }
         });
     </script>
 </body>
