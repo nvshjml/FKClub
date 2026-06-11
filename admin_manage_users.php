@@ -23,10 +23,10 @@ if (isset($_POST['add_user_btn'])) {
     $password = password_hash("12345", PASSWORD_DEFAULT);
     $status = 'Approved';
 
-    // THE FIX: If the user is an Admin, they get NULL points. Otherwise, they start with 0.
-    $starting_points = ($role == 'Admin') ? NULL : 0;
+    // THE FIX: Set points to strictly integer 0 to prevent MySQL Type Errors
+    $starting_points = 0;
 
-    $check_sql = "SELECT * FROM `USER` WHERE user_id = ? OR email = ?";
+    $check_sql = "SELECT * FROM `user` WHERE user_id = ? OR email = ?";
     $stmt_check = $conn->prepare($check_sql);
     $stmt_check->bind_param("ss", $new_id, $email);
     $stmt_check->execute();
@@ -34,15 +34,17 @@ if (isset($_POST['add_user_btn'])) {
     if ($stmt_check->get_result()->num_rows > 0) {
         $message = "<div class='alert alert-error'>❌ Error: Matrix ID or Email already exists.</div>";
     } else {
-        // Notice we added total_point to the INSERT statement
-        $insert_sql = "INSERT INTO `USER` (user_id, role, name, email, pass_hash, phone, account_status, total_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        $insert_sql = "INSERT INTO `user` (user_id, role, name, email, pass_hash, phone, account_status, total_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt_insert = $conn->prepare($insert_sql);
         
-        // Notice the bind_param has an extra 's' for the new variable
-        $stmt_insert->bind_param("ssssssss", $new_id, $role, $name, $email, $password, $phone, $status, $starting_points);
+        // THE FIX: Changed the last parameter to "i" (Integer) to match the database
+        $stmt_insert->bind_param("sssssssi", $new_id, $role, $name, $email, $password, $phone, $status, $starting_points);
         
         if ($stmt_insert->execute()) {
             $message = "<div class='alert alert-success'>✅ User registered successfully. Default password is '12345'.</div>";
+        } else {
+            // THE FIX: If it fails, show the exact error!
+            $message = "<div class='alert alert-error'>❌ Database Error: " . htmlspecialchars($stmt_insert->error) . "</div>";
         }
     }
 }
@@ -56,7 +58,7 @@ if (isset($_POST['delete_user_btn'])) {
     if ($target_id === $_SESSION['user_id']) {
         $message = "<div class='alert alert-error'>❌ You cannot delete your own Admin account.</div>";
     } else {
-        $del_sql = "DELETE FROM `USER` WHERE user_id = ?";
+        $del_sql = "DELETE FROM `user` WHERE user_id = ?";
         $stmt_del = $conn->prepare($del_sql);
         
         if ($stmt_del) {
@@ -72,7 +74,7 @@ if (isset($_POST['delete_user_btn'])) {
     }
 }
 
-$users_sql = "SELECT user_id, name, email, phone, role, account_status FROM `USER` ORDER BY role ASC, name ASC";
+$users_sql = "SELECT user_id, name, email, phone, role, account_status FROM `user` ORDER BY role ASC, name ASC";
 $users_result = $conn->query($users_sql);
 ?>
 
@@ -91,8 +93,8 @@ $users_result = $conn->query($users_sql);
         /* Header */
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .page-header h2 { color: #1a202c; font-size: 24px; margin: 0; }
-        .header-actions { display: flex; gap: 15px; align-items: center;
-}
+        .header-actions { display: flex; gap: 15px; align-items: center; }
+        
         /* Buttons */
         .btn-primary { background: #3182ce; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px; }
         .btn-primary:hover { background: #2b6cb0; }
@@ -124,7 +126,6 @@ $users_result = $conn->query($users_sql);
         td { padding: 15px 20px; border-bottom: 1px solid #edf2f7; font-size: 14px; color: #2d3748; }
         tr:hover { background-color: #f8fafc; }
         
-
         /* Badges & Alerts */
         .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #edf2f7; color: #4a5568; }
         .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; font-size: 14px; }
@@ -223,4 +224,4 @@ $users_result = $conn->query($users_sql);
         }
     </script>
 </body>
-</html>
+</html> 

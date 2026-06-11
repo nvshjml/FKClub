@@ -14,19 +14,18 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
 
 $current_page = basename($_SERVER['PHP_SELF']);
 
-$total_students = $conn->query("SELECT COUNT(*) AS total FROM `USER` WHERE role IN ('Student', 'Committee') AND account_status = 'Approved'")->fetch_assoc()['total'];
-$total_clubs = $conn->query("SELECT COUNT(*) AS total FROM CLUB WHERE isActive = 1")->fetch_assoc()['total'] ?? 0;
-$total_events = $conn->query("SELECT COUNT(*) AS total FROM EVENT WHERE date >= CURDATE()")->fetch_assoc()['total'] ?? 0;
+$total_students = $conn->query("SELECT COUNT(*) AS total FROM `user` WHERE role IN ('Student', 'Committee') AND account_status = 'Approved'")->fetch_assoc()['total'];
+$total_clubs = $conn->query("SELECT COUNT(*) AS total FROM `club` WHERE isActive = 1")->fetch_assoc()['total'] ?? 0;
+$total_events = $conn->query("SELECT COUNT(*) AS total FROM `event` WHERE date >= CURDATE()")->fetch_assoc()['total'] ?? 0;
 
-// FIXED: Count pending club memberships instead of pending users
-$pending_approvals_query = $conn->query("SELECT COUNT(*) AS total FROM CLUB_MEMBERSHIP WHERE status = 'Pending'");
+$pending_approvals_query = $conn->query("SELECT COUNT(*) AS total FROM `club_membership` WHERE status = 'Pending'");
 $pending_approvals = $pending_approvals_query ? $pending_approvals_query->fetch_assoc()['total'] : 0;
 
-$role_query = $conn->query("SELECT role, COUNT(*) as count FROM `USER` GROUP BY role");
+$role_query = $conn->query("SELECT role, COUNT(*) as count FROM `user` GROUP BY role");
 $role_labels = []; $role_data = [];
 while($row = $role_query->fetch_assoc()) { $role_labels[] = $row['role']; $role_data[] = $row['count']; }
 
-$recent_users_sql = "SELECT user_id, name, email, account_status, role FROM `USER` ORDER BY user_id DESC LIMIT 5";
+$recent_users_sql = "SELECT user_id, name, email, account_status, role FROM `user` ORDER BY created_at DESC LIMIT 5";
 $recent_users_result = $conn->query($recent_users_sql);
 ?>
 <!DOCTYPE html>
