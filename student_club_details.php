@@ -109,7 +109,7 @@ $past_events = $stmt->get_result();
     <div class="main-content">
         
         <div class="header-card">
-            <a href="student_browse_clubs.php" class="btn-back">← Back to Clubs</a>
+            <a href="student_dashboard.php" class="btn-back">← Back to Clubs</a>
             <h1><?php echo htmlspecialchars($club['club_name']); ?></h1>
             <p><?php echo nl2br(htmlspecialchars($club['description'] ?? 'No description available for this club yet.')); ?></p>
             <?php if (!empty($club['advisor_name'])): ?>
