@@ -3,7 +3,10 @@ session_start();
 require 'db_connect.php';
 require 'session_timeout.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') { header("Location: index.php"); exit(); }
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
+    header("Location: index.php");
+    exit();
+}
 
 $msg = "";
 
@@ -11,10 +14,9 @@ if (isset($_POST['assign_btn'])) {
     $user_id = $_POST['user_id'];
     $club_id = $_POST['club_id'];
     $position = $_POST['position'];
-    
     $can_assign = true;
 
-    // 1. Check 3-Club Maximum Limit
+    // Check maximum limit
     $check_existing_club = $conn->prepare("SELECT status FROM club_membership WHERE user_id = ? AND club_id = ?");
     $check_existing_club->bind_param("ss", $user_id, $club_id);
     $check_existing_club->execute();
@@ -32,7 +34,7 @@ if (isset($_POST['assign_btn'])) {
         }
     }
 
-    // 2. Check if a President already exists for this club
+    // Check if President already exists
     if ($can_assign && $position === 'President') {
         $check_stmt = $conn->prepare("SELECT user_id FROM committee WHERE club_id = ? AND position = 'President'");
         $check_stmt->bind_param("s", $club_id);
@@ -44,20 +46,18 @@ if (isset($_POST['assign_btn'])) {
         }
     }
 
-    // 3. Proceed with assignment & Auto-Sync
+    // Assign & Auto-Sync
     if ($can_assign) {
         $stmt = $conn->prepare("INSERT INTO committee (user_id, club_id, position) VALUES (?, ?, ?)");
         $stmt->bind_param("sss", $user_id, $club_id, $position);
         
         if($stmt->execute()) {
-            
-            // Auto-Sync to club_membership
             $check_mem = $conn->prepare("SELECT status FROM club_membership WHERE user_id = ? AND club_id = ?");
             $check_mem->bind_param("ss", $user_id, $club_id); 
             $check_mem->execute();
             $mem_result = $check_mem->get_result();
             
-            if ($mem_result->num_rows == 0) {
+            if ($mem_result->num_rows === 0) {
                 $ins_mem = $conn->prepare("INSERT INTO club_membership (user_id, club_id, join_date, status) VALUES (?, ?, CURDATE(), 'Approved')");
                 $ins_mem->bind_param("ss", $user_id, $club_id);
                 $ins_mem->execute();
@@ -66,7 +66,6 @@ if (isset($_POST['assign_btn'])) {
                 $upd_mem->bind_param("ss", $user_id, $club_id);
                 $upd_mem->execute();
             }
-
             $msg = "<div class='alert alert-success'>✅ Role assigned and added to club membership successfully!</div>";
         } else {
             if ($conn->errno == 1062) {
@@ -91,34 +90,17 @@ $clubs = $conn->query("SELECT club_id, club_name FROM CLUB");
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
         body { display: flex; background: #e2e8f0; min-height: 100vh; margin: 0; }
         .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; width: calc(100% - 260px); }
-        
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .page-header h2 { color: #1a202c; font-size: 24px; margin: 0; }
-
-        .btn-back {
-            display: inline-flex;
-            align-items: center;
-            background: #718096;
-            color: #ffffff;
-            padding: 10px 18px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            text-decoration: none;
-            transition: 0.2s;
-            border: none;
-        }
+        .btn-back { display: inline-flex; align-items: center; background: #718096; color: #ffffff; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; transition: 0.2s; border: none; }
         .btn-back:hover { background: #4a5568; }
-
         .card { background: white; max-width: 600px; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-top: 4px solid #3182ce; }
         .form-group { margin-bottom: 20px; }
         label { font-size: 14px; font-weight: 600; color: #4a5568; display: block; margin-bottom: 8px; }
         select { width: 100%; padding: 12px 15px; border: 1px solid #cbd5e0; border-radius: 8px; outline: none; font-size: 14px; transition: border 0.2s; color: #2d3748; }
         select:focus { border-color: #3182ce; box-shadow: 0 0 0 3px rgba(49,130,206,0.1); }
-        
         .btn { background: #3182ce; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 600; font-size: 15px; transition: 0.2s; margin-top: 10px; }
         .btn:hover { background: #2b6cb0; }
-
         .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; font-size: 14px; max-width: 600px; }
         .alert-success { background: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
         .alert-error { background: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
@@ -126,7 +108,6 @@ $clubs = $conn->query("SELECT club_id, club_name FROM CLUB");
 </head>
 <body>
     <?php include 'sidebar.php'; ?>
-    
     <div class="main-content">
         <div class="page-header">
             <h2>Assign Committee Role</h2>
@@ -147,7 +128,6 @@ $clubs = $conn->query("SELECT club_id, club_name FROM CLUB");
                         <?php endwhile; ?>
                     </select>
                 </div>
-                
                 <div class="form-group">
                     <label>Target Club</label>
                     <select name="club_id" required>
@@ -156,7 +136,6 @@ $clubs = $conn->query("SELECT club_id, club_name FROM CLUB");
                         <?php endwhile; ?>
                     </select>
                 </div>
-                
                 <div class="form-group">
                     <label>Position</label>
                     <select name="position" required>
@@ -167,7 +146,6 @@ $clubs = $conn->query("SELECT club_id, club_name FROM CLUB");
                         <option value="Committee Member">Committee Member</option>
                     </select>
                 </div>
-                
                 <button type="submit" name="assign_btn" class="btn">Assign Role</button>
             </form>
         </div>

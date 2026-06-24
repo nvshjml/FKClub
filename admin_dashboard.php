@@ -7,14 +7,14 @@ header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
     header("Location: index.php");
     exit();
 }
 
 $current_page = basename($_SERVER['PHP_SELF']);
 
-$total_students = $conn->query("SELECT COUNT(*) AS total FROM `user` WHERE role IN ('Student', 'Committee') AND account_status = 'Approved'")->fetch_assoc()['total'];
+$total_students = $conn->query("SELECT COUNT(*) AS total FROM `user` WHERE role IN ('Student', 'Committee') AND account_status = 'Active'")->fetch_assoc()['total'];
 $total_clubs = $conn->query("SELECT COUNT(*) AS total FROM `club` WHERE isActive = 1")->fetch_assoc()['total'] ?? 0;
 $total_events = $conn->query("SELECT COUNT(*) AS total FROM `event` WHERE date >= CURDATE()")->fetch_assoc()['total'] ?? 0;
 
@@ -22,8 +22,12 @@ $pending_approvals_query = $conn->query("SELECT COUNT(*) AS total FROM `club_mem
 $pending_approvals = $pending_approvals_query ? $pending_approvals_query->fetch_assoc()['total'] : 0;
 
 $role_query = $conn->query("SELECT role, COUNT(*) as count FROM `user` GROUP BY role");
-$role_labels = []; $role_data = [];
-while($row = $role_query->fetch_assoc()) { $role_labels[] = $row['role']; $role_data[] = $row['count']; }
+$role_labels = []; 
+$role_data = [];
+while($row = $role_query->fetch_assoc()) { 
+    $role_labels[] = $row['role']; 
+    $role_data[] = $row['count']; 
+}
 
 $recent_users_sql = "SELECT user_id, name, email, account_status, role FROM `user` ORDER BY created_at DESC LIMIT 5";
 $recent_users_result = $conn->query($recent_users_sql);
@@ -70,10 +74,10 @@ $recent_users_result = $conn->query($recent_users_sql);
         table { width: 100%; border-collapse: collapse; text-align: left; min-width: 600px; }
         th { padding: 15px 20px; font-size: 12px; color: #718096; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
         td { padding: 15px 20px; color: #4a5568; border-bottom: 1px solid #edf2f7; font-size: 14px; white-space: nowrap; }
+        
         .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
         .status-active { background: #c6f6d5; color: #22543d; }
-        .status-pending { background: #feebc8; color: #744210; }
-        .status-rejected { background: #fed7d7; color: #822727; }
+        .status-inactive { background: #fed7d7; color: #822727; }
 
         @media (max-width: 1024px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -118,7 +122,7 @@ $recent_users_result = $conn->query($recent_users_sql);
             <div class="action-card">
                 <div>
                     <h3>System Approvals</h3>
-                    <p>Review and approve new student accounts and club join requests.</p>
+                    <p>Review and approve new club join requests.</p>
                 </div>
                 <a href="pending_approvals.php" class="btn-hub btn-hub-warning">Review Approvals (<?php echo $pending_approvals; ?>)</a>
             </div>
@@ -136,7 +140,13 @@ $recent_users_result = $conn->query($recent_users_sql);
             <div class="table-responsive">
                 <table>
                     <thead>
-                        <tr><th>Matrix ID</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr>
+                        <tr>
+                            <th>Matrix ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                        </tr>
                     </thead>
                     <tbody>
                         <?php if ($recent_users_result && $recent_users_result->num_rows > 0): ?>
@@ -147,7 +157,7 @@ $recent_users_result = $conn->query($recent_users_sql);
                                     <td><?php echo htmlspecialchars($user['email']); ?></td>
                                     <td><span style="background:#edf2f7; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:600;"><?php echo htmlspecialchars($user['role']); ?></span></td>
                                     <td>
-                                        <span class="status-badge <?php echo ($user['account_status'] == 'Approved') ? 'status-active' : (($user['account_status'] == 'Pending') ? 'status-pending' : 'status-rejected'); ?>">
+                                        <span class="status-badge <?php echo ($user['account_status'] == 'Active') ? 'status-active' : 'status-inactive'; ?>">
                                             <?php echo htmlspecialchars($user['account_status']); ?>
                                         </span>
                                     </td>
@@ -160,7 +170,6 @@ $recent_users_result = $conn->query($recent_users_sql);
                 </table>
             </div>
         </div>
-
     </div>
 
     <script>
@@ -169,8 +178,21 @@ $recent_users_result = $conn->query($recent_users_sql);
 
         new Chart(document.getElementById('roleChart'), { 
             type: 'bar', 
-            data: { labels: <?php echo json_encode($role_labels); ?>, datasets: [{ label: 'Users', data: <?php echo json_encode($role_data); ?>, backgroundColor: ['#3182ce', '#805ad5', '#38a169'], borderRadius: 6 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+            data: { 
+                labels: <?php echo json_encode($role_labels); ?>, 
+                datasets: [{ 
+                    label: 'Users', 
+                    data: <?php echo json_encode($role_data); ?>, 
+                    backgroundColor: ['#3182ce', '#805ad5', '#38a169'], 
+                    borderRadius: 6 
+                }] 
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } }, 
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } 
+            }
         });
     </script>
 </body>

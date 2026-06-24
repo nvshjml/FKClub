@@ -3,37 +3,30 @@ session_start();
 require 'db_connect.php';
 require 'session_timeout.php';
 
-// Force no-cache
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
     header("Location: index.php");
     exit();
 }
 
 $current_page = basename($_SERVER['PHP_SELF']);
 
-// ---------------------------------------------------------
-// FETCH SUMMARY STATISTICS (Req 4a)
-// ---------------------------------------------------------
-$total_events_query = $conn->query("SELECT COUNT(*) AS total FROM EVENT");
+$total_events_query = $conn->query("SELECT COUNT(*) AS total FROM event");
 $total_events = $total_events_query->fetch_assoc()['total'];
 
-$total_registrations_query = $conn->query("SELECT COUNT(*) AS total FROM EVENT_REGISTRATION WHERE status != 'Cancelled'");
+$total_registrations_query = $conn->query("SELECT COUNT(*) AS total FROM event_registration WHERE status != 'Cancelled'");
 $total_registrations = $total_registrations_query->fetch_assoc()['total'];
 
-$waitlisted_query = $conn->query("SELECT COUNT(*) AS total FROM EVENT_REGISTRATION WHERE status = 'Waitlisted'");
+$waitlisted_query = $conn->query("SELECT COUNT(*) AS total FROM event_registration WHERE status = 'Waitlisted'");
 $total_waitlisted = $waitlisted_query->fetch_assoc()['total'];
 
-// ---------------------------------------------------------
-// FETCH CHART 1: Popular Events Based on Registration (Req 4a)
-// ---------------------------------------------------------
 $popular_events_query = $conn->query("
     SELECT e.event_name, COUNT(er.register_id) as reg_count 
-    FROM EVENT e 
-    LEFT JOIN EVENT_REGISTRATION er ON e.event_id = er.event_id AND er.status != 'Cancelled'
+    FROM event e 
+    LEFT JOIN event_registration er ON e.event_id = er.event_id AND er.status != 'Cancelled'
     GROUP BY e.event_id, e.event_name 
     ORDER BY reg_count DESC 
     LIMIT 5
@@ -47,12 +40,9 @@ while($row = $popular_events_query->fetch_assoc()) {
     $popular_data[] = $row['reg_count'];
 }
 
-// ---------------------------------------------------------
-// FETCH CHART 2: Monthly Event Activity Trends (Req 4a & 4b)
-// ---------------------------------------------------------
 $monthly_trends_query = $conn->query("
     SELECT DATE_FORMAT(date, '%b %Y') as month_year, COUNT(event_id) as event_count 
-    FROM EVENT 
+    FROM event 
     GROUP BY DATE_FORMAT(date, '%Y-%m'), month_year 
     ORDER BY date ASC 
     LIMIT 6
@@ -65,13 +55,10 @@ while($row = $monthly_trends_query->fetch_assoc()) {
     $trend_data[] = $row['event_count'];
 }
 
-// ---------------------------------------------------------
-// FETCH CHART 3: Number of Events Organized by Each Club (Req 4a)
-// ---------------------------------------------------------
 $events_per_club_query = $conn->query("
     SELECT c.club_name, COUNT(e.event_id) as event_count 
-    FROM CLUB c 
-    LEFT JOIN EVENT e ON c.club_id = e.club_id 
+    FROM club c 
+    LEFT JOIN event e ON c.club_id = e.club_id 
     GROUP BY c.club_id, c.club_name 
     ORDER BY event_count DESC
 ");
@@ -84,15 +71,12 @@ while($row = $events_per_club_query->fetch_assoc()) {
     $club_event_data[] = $row['event_count'];
 }
 
-// ---------------------------------------------------------
-// FETCH TABLE DATA FOR MANAGEMENT
-// ---------------------------------------------------------
 $events_sql = "
     SELECT e.event_id, e.event_name, e.date, IFNULL(e.time, 'N/A') as time, e.max_cap, c.club_name,
-           (SELECT COUNT(*) FROM EVENT_REGISTRATION er WHERE er.event_id = e.event_id AND er.status = 'Registered') as registered_count,
-           (SELECT COUNT(*) FROM EVENT_REGISTRATION er WHERE er.event_id = e.event_id AND er.status = 'Waitlisted') as waitlist_count
-    FROM EVENT e 
-    JOIN CLUB c ON e.club_id = c.club_id 
+           (SELECT COUNT(*) FROM event_registration er WHERE er.event_id = e.event_id AND er.status = 'Registered') as registered_count,
+           (SELECT COUNT(*) FROM event_registration er WHERE er.event_id = e.event_id AND er.status = 'Waitlisted') as waitlist_count
+    FROM event e 
+    JOIN club c ON e.club_id = c.club_id 
     ORDER BY e.date ASC
 ";
 $events_result = $conn->query($events_sql);
@@ -107,31 +91,24 @@ $events_result = $conn->query($events_sql);
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { background: #e2e8f0; display: flex; min-height: 100vh; }
-        
         .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; width: calc(100% - 260px); }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;}
         .page-header h1 { color: #1a202c; font-size: 28px; font-weight: 700; }
-        
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
         .stat-card { background: white; padding: 25px 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; border-bottom: 4px solid #3182ce; }
         .stat-card h3 { color: #718096; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
         .stat-card .number { font-size: 32px; font-weight: 800; color: #2d3748; }
-
         .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
         .chart-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .chart-card h3 { color: #2d3748; font-size: 16px; margin-bottom: 20px; border-bottom: 2px solid #edf2f7; padding-bottom: 10px;}
         .chart-container { position: relative; height: 300px; width: 100%; display: flex; justify-content: center;}
-
-        /* FIXED: Changed background to white */
         .section-header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 8px 8px 0 0; border: 1px solid #cbd5e0; border-bottom: 1px solid #e2e8f0; }
         .section-header h2 { color: #2d3748; font-size: 15px; font-weight: 700; margin: 0; }
-
         .table-card { background: white; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 30px; border: 1px solid #cbd5e0; border-top: none; }
         .table-responsive { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; min-width: 800px; }
         th { padding: 15px 20px; font-size: 12px; color: #718096; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
         td { padding: 15px 20px; color: #4a5568; border-bottom: 1px solid #edf2f7; font-size: 14px; white-space: nowrap; }
-        
         .capacity-bar { background: #e2e8f0; border-radius: 10px; height: 8px; width: 100px; margin-top: 5px; overflow: hidden;}
         .capacity-fill { background: #38a169; height: 100%; border-radius: 10px; }
         .capacity-fill.full { background: #dd6b20; }
@@ -145,13 +122,12 @@ $events_result = $conn->query($events_sql);
     </style>
 </head>
 <body>
-
     <?php include 'sidebar.php'; ?>
 
     <div class="main-content">
         <div class="page-header">
             <h1>Event Analytics</h1>
-            <span style="color: #718096; font-weight: 500; background: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">Admin: Ruzaini</span>
+            <span style="color: #718096; font-weight: 500; background: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">Admin: <?php echo htmlspecialchars($_SESSION['name'] ?? 'Admin'); ?></span>
         </div>
 
         <div class="stats-grid">
@@ -228,14 +204,12 @@ $events_result = $conn->query($events_sql);
                 </table>
             </div>
         </div>
-
     </div>
 
     <script>
         Chart.defaults.font.family = "'Inter', sans-serif";
         Chart.defaults.color = "#718096";
 
-        // Line Chart: Monthly Trends
         new Chart(document.getElementById('trendChart'), { 
             type: 'line', 
             data: { 
@@ -255,7 +229,6 @@ $events_result = $conn->query($events_sql);
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
         });
 
-        // Bar Chart: Popular Events
         new Chart(document.getElementById('popularChart'), { 
             type: 'bar', 
             data: { 
@@ -270,7 +243,6 @@ $events_result = $conn->query($events_sql);
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
         });
 
-        // Pie Chart: Events per Club
         new Chart(document.getElementById('clubEventsChart'), { 
             type: 'doughnut', 
             data: { 

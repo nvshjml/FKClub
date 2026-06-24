@@ -3,13 +3,11 @@ session_start();
 require 'db_connect.php';
 require 'session_timeout.php';
 
-// Force no-cache
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 
-// SECURITY CHECK: Only Admins can access this page!
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
     header("Location: index.php");
     exit();
 }
@@ -17,20 +15,10 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
 $message = "";
 $edit_record = null;
 $current_page = basename($_SERVER['PHP_SELF']);
-
-// ============================================================
-// USING CORRECT PRIMARY KEY: attend_id (from your database)
-// ============================================================
 $pk_column = 'attend_id';
-
-// ============================================================
-// GET SELECTED EVENT FILTER FOR MASTER ATTENDANCE TABLE
-// ============================================================
 $selected_event_id = isset($_GET['filter_event_id']) ? $conn->real_escape_string($_GET['filter_event_id']) : '';
 
-// ============================================================
-// HANDLE DELETE ATTENDANCE RECORD
-// ============================================================
+// Delete attendance record
 if (isset($_GET['delete_id'])) {
     $delete_id = intval($_GET['delete_id']);
     
@@ -66,9 +54,7 @@ if (isset($_GET['delete_id'])) {
     }
 }
 
-// ============================================================
-// HANDLE EDIT ATTENDANCE RECORD
-// ============================================================
+// Edit attendance record
 if (isset($_POST['update_attendance'])) {
     $attendance_id = intval($_POST['attendance_id']);
     $attend_status = $_POST['attend_status'];
@@ -111,9 +97,7 @@ if (isset($_POST['update_attendance'])) {
     }
 }
 
-// ============================================================
-// GET EDIT RECORD
-// ============================================================
+// Fetch record for editing
 if (isset($_GET['edit_id'])) {
     $edit_id = intval($_GET['edit_id']);
     $edit_sql = "
@@ -131,21 +115,11 @@ if (isset($_GET['edit_id'])) {
     $edit_record = $edit_stmt->get_result()->fetch_assoc();
 }
 
-// ============================================================
-// FETCH MASTER ATTENDANCE LIST (WITH EVENT FILTER)
-// ============================================================
+// Fetch master attendance list
 $attendance_sql = "
     SELECT 
-        a.$pk_column as attendance_id,
-        u.user_id, 
-        u.name AS student_name, 
-        e.event_name, 
-        c.club_name, 
-        e.date, 
-        a.start_time,
-        a.attend_status, 
-        a.point_awarded,
-        e.event_id
+        a.$pk_column as attendance_id, u.user_id, u.name AS student_name, e.event_name, 
+        c.club_name, e.date, a.start_time, a.attend_status, a.point_awarded, e.event_id
     FROM ATTENDANCE a
     JOIN EVENT_REGISTRATION er ON a.register_id = er.register_id
     JOIN `USER` u ON er.user_id = u.user_id
@@ -164,15 +138,10 @@ if (!$attendance_result) {
     die("Query Error: " . $conn->error);
 }
 
-// ============================================================
-// FETCH ALL EVENTS FOR THE FILTER DROPDOWN
-// ============================================================
 $all_events_sql = "SELECT event_id, event_name, date, club_id FROM EVENT ORDER BY date DESC";
 $all_events_result = $conn->query($all_events_sql);
 
-// ---------------------------------------------------------
-// HANDLE FILTERS (Req 4e) - FOR REPORTS SECTION
-// ---------------------------------------------------------
+// Handle Filters
 $filter_club = isset($_GET['club_id']) ? $conn->real_escape_string($_GET['club_id']) : '';
 $filter_semester = isset($_GET['semester']) ? $conn->real_escape_string($_GET['semester']) : '';
 
@@ -185,13 +154,10 @@ if ($filter_semester) {
     if ($filter_semester == '2026-2') $event_where .= " AND e.date BETWEEN '2026-07-01' AND '2026-12-31'";
 }
 
-// ---------------------------------------------------------
-// FETCH SUMMARY STATISTICS
-// ---------------------------------------------------------
+// Fetch Summary Statistics
 $events_conducted_q = $conn->query("SELECT COUNT(*) AS total FROM EVENT e WHERE e.date <= CURDATE() AND $event_where");
 $events_conducted = $events_conducted_q->fetch_assoc()['total'];
 
-// Include 'Volunteer' in the attendance calculations!
 $participation_q = $conn->query("
     SELECT COUNT(*) AS total 
     FROM ATTENDANCE a 
@@ -210,9 +176,7 @@ $total_registered_q = $conn->query("
 $total_registered = $total_registered_q->fetch_assoc()['total'];
 $overall_rate = ($total_registered > 0) ? round(($total_participation / $total_registered) * 100, 1) : 0;
 
-// ---------------------------------------------------------
-// FETCH CHART 1: Point Distribution
-// ---------------------------------------------------------
+// Chart 1: Point Distribution
 $point_dist_q = $conn->query("
     SELECT 
         SUM(CASE WHEN total_point < 20 THEN 1 ELSE 0 END) as tier1,
@@ -223,9 +187,7 @@ $point_dist_q = $conn->query("
 ");
 $point_dist = $point_dist_q->fetch_assoc();
 
-// ---------------------------------------------------------
-// FETCH CHART 2: Participation Trends
-// ---------------------------------------------------------
+// Chart 2: Participation Trends
 $trends_q = $conn->query("
     SELECT DATE_FORMAT(e.date, '%b %Y') as month_year, COUNT(a.attend_id) as participants
     FROM EVENT e
@@ -235,15 +197,14 @@ $trends_q = $conn->query("
     GROUP BY DATE_FORMAT(e.date, '%Y-%m'), month_year
     ORDER BY e.date ASC LIMIT 6
 ");
-$trend_labels = []; $trend_data = [];
+$trend_labels = []; 
+$trend_data = [];
 while($row = $trends_q->fetch_assoc()) {
     $trend_labels[] = $row['month_year']; 
     $trend_data[] = $row['participants'];
 }
 
-// ---------------------------------------------------------
-// FETCH TABLE: Attendance Rate Per Event
-// ---------------------------------------------------------
+// Attendance Rate Per Event
 $event_rates_sql = "
     SELECT e.event_name, c.club_name, e.date,
            (SELECT COUNT(*) FROM EVENT_REGISTRATION er WHERE er.event_id = e.event_id AND er.status='Registered') as registered,
@@ -255,9 +216,7 @@ $event_rates_sql = "
 ";
 $event_rates = $conn->query($event_rates_sql);
 
-// ---------------------------------------------------------
-// FETCH TABLE: Most Active Students
-// ---------------------------------------------------------
+// Most Active Students
 $active_students = $conn->query("
     SELECT user_id, name, total_point, role
     FROM `USER`
@@ -266,17 +225,14 @@ $active_students = $conn->query("
     LIMIT 10
 ");
 
-// Fetch Clubs for Filter Dropdown
 $clubs = $conn->query("SELECT club_id, club_name FROM CLUB WHERE isActive = 1 ORDER BY club_name ASC");
 
-// Fetch pending count for sidebar badge
 $sidebar_pending_count = 0;
 $sidebar_stmt = $conn->query("SELECT COUNT(*) AS total FROM `USER` WHERE account_status = 'Pending'");
 if($sidebar_stmt) {
     $sidebar_pending_count = $sidebar_stmt->fetch_assoc()['total'];
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -288,55 +244,18 @@ if($sidebar_stmt) {
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { display: flex; background: #e2e8f0; min-height: 100vh; margin: 0; }
-
         .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; width: calc(100% - 260px); box-sizing: border-box; }
-        
         .card { background-color: rgba(255, 255, 255, 0.95); padding: 35px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; backdrop-filter: blur(10px); border-top: 6px solid #3182ce; margin-bottom: 30px; }
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
         .card-header h2 { color: #1a202c; font-size: 22px; margin: 0; }
-        
         .btn-export { background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0; padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
         .btn-export:hover { background: #e2e8f0; }
-        
-        .filter-bar { 
-            background: #f8fafc; 
-            padding: 15px 20px; 
-            border-radius: 12px; 
-            margin-bottom: 20px; 
-            display: flex; 
-            align-items: center; 
-            gap: 15px; 
-            flex-wrap: wrap;
-            border: 1px solid #e2e8f0;
-        }
+        .filter-bar { background: #f8fafc; padding: 15px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; border: 1px solid #e2e8f0; }
         .filter-bar label { font-weight: 600; color: #4a5568; }
-        .filter-bar select { 
-            padding: 10px 15px; 
-            border-radius: 8px; 
-            border: 1px solid #cbd5e0; 
-            outline: none; 
-            font-size: 14px; 
-            background: white; 
-            min-width: 250px;
-        }
-        .filter-bar .btn-clear-filter { 
-            background: #e2e8f0; 
-            color: #4a5568; 
-            padding: 10px 20px; 
-            border-radius: 8px; 
-            text-decoration: none; 
-            font-weight: 600; 
-            font-size: 14px;
-        }
+        .filter-bar select { padding: 10px 15px; border-radius: 8px; border: 1px solid #cbd5e0; outline: none; font-size: 14px; background: white; min-width: 250px; }
+        .filter-bar .btn-clear-filter { background: #e2e8f0; color: #4a5568; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; }
         .filter-bar .btn-clear-filter:hover { background: #cbd5e0; }
-        .filter-info { 
-            background: #ebf8ff; 
-            padding: 8px 15px; 
-            border-radius: 20px; 
-            font-size: 13px; 
-            color: #2b6cb0;
-        }
-        
+        .filter-info { background: #ebf8ff; padding: 8px 15px; border-radius: 20px; font-size: 13px; color: #2b6cb0; }
         .table-container { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; }
         thead { background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; }
@@ -344,60 +263,47 @@ if($sidebar_stmt) {
         td { padding: 16px 15px; font-size: 14px; color: #2d3748; border-bottom: 1px solid #edf2f7; vertical-align: middle; }
         tr:last-child td { border-bottom: none; }
         tr:hover { background-color: #f8fafc; }
-
         .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; text-align: center; min-width: 80px; }
         .status-present { background-color: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
         .status-late { background-color: #fefcbf; color: #744210; border: 1px solid #fbd38d; }
         .status-volunteer { background-color: #ebf8ff; color: #2b6cb0; border: 1px solid #90cdf4; }
         .status-absent { background-color: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
-        
         .points-awarded { font-weight: bold; color: #3182ce; }
-        
         .action-buttons { display: flex; gap: 8px; }
         .btn-edit { background-color: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-block; }
         .btn-edit:hover { background-color: #bee3f8; }
         .btn-delete { background-color: #fff5f5; color: #c53030; border: 1px solid #fed7d7; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-block; }
         .btn-delete:hover { background-color: #fed7d7; }
-        
         .alert { padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; }
         .alert-success { background-color: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
         .alert-error { background-color: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
-        
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 2000; }
         .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 500px; padding: 30px; }
         .modal-content h3 { margin-bottom: 20px; color: #1a202c; }
         .modal-content select, .modal-content input { width: 100%; padding: 12px; margin-bottom: 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Inter', sans-serif; }
         .btn-submit { background: #3182ce; color: white; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
         .btn-cancel { background: #e2e8f0; color: #4a5568; padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; margin-left: 10px; font-weight: 600; text-decoration: none; display: inline-block; }
-        
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;}
         .page-header h1 { color: #1a202c; font-size: 28px; font-weight: 700; }
-        
         .filter-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;}
         .filter-card select { padding: 10px 15px; border-radius: 8px; border: 1px solid #cbd5e0; outline: none; font-size: 14px; background: white; min-width: 200px;}
         .btn-filter { background: #3182ce; color: white; padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s;}
         .btn-filter:hover { background: #2b6cb0; }
         .btn-clear { background: #e2e8f0; color: #4a5568; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;}
-
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
         .stat-card { background: white; padding: 25px 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; border-bottom: 4px solid #3182ce; }
         .stat-card h3 { color: #718096; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
         .stat-card .number { font-size: 32px; font-weight: 800; color: #2d3748; }
-
         .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
         .chart-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .chart-card h3 { color: #2d3748; font-size: 16px; margin-bottom: 20px; border-bottom: 2px solid #edf2f7; padding-bottom: 10px;}
         .chart-container { position: relative; height: 250px; width: 100%; display: flex; justify-content: center;}
-
         .section-header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 8px 8px 0 0; border: 1px solid #cbd5e0; border-bottom: 1px solid #e2e8f0; }
         .section-header h2 { color: #2d3748; font-size: 15px; font-weight: 700; margin: 0; }
-
         .table-card { background: white; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 30px; border: 1px solid #cbd5e0; border-top: none; }
         .table-responsive { width: 100%; overflow-x: auto; }
-        
         .progress-bar-bg { background: #e2e8f0; border-radius: 10px; height: 8px; width: 100%; margin-top: 5px; overflow: hidden;}
         .progress-bar-fill { background: #38a169; height: 100%; border-radius: 10px; }
-        
         .badge-tier { padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
         .tier-1 { background: #fed7d7; color: #822727; }
         .tier-2 { background: #e2e8f0; color: #4a5568; }
@@ -413,11 +319,8 @@ if($sidebar_stmt) {
     </style>
 </head>
 <body>
-
     <?php include 'sidebar.php'; ?>
-
     <div class="main-content">
-        
         <div class="page-header">
             <h1>📊 Attendance & Participation Reports</h1>
             <span style="color: #718096; font-weight: 500; background: white; padding: 8px 15px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">Admin Analytics Dashboard</span>
@@ -425,11 +328,9 @@ if($sidebar_stmt) {
 
         <form method="GET" class="filter-card">
             <strong style="color:#4a5568;">🔍 Filter Reports By:</strong>
-            
             <?php if($selected_event_id): ?>
                 <input type="hidden" name="filter_event_id" value="<?php echo htmlspecialchars($selected_event_id); ?>">
             <?php endif; ?>
-
             <select name="club_id">
                 <option value="">All Clubs</option>
                 <?php 
@@ -473,7 +374,6 @@ if($sidebar_stmt) {
                 <h2>📋 Master Attendance Records</h2>
                 <button class="btn-export" onclick="window.print()">🖨️ Print Report</button>
             </div>
-            
             <?php echo $message; ?>
 
             <div class="filter-bar">
@@ -488,7 +388,6 @@ if($sidebar_stmt) {
                         </option>
                     <?php endwhile; ?>
                 </select>
-                
                 <?php if (!empty($selected_event_id)): 
                     $event_name_sql = "SELECT event_name FROM EVENT WHERE event_id = '$selected_event_id'";
                     $event_name_result = $conn->query($event_name_sql);
@@ -534,25 +433,16 @@ if($sidebar_stmt) {
                                     </td>
                                     <td>
                                         <?php 
-                                        if ($row['attend_status'] == 'Present') {
-                                            echo '<span class="status-badge status-present">Present</span>';
-                                        } elseif ($row['attend_status'] == 'Late') {
-                                            echo '<span class="status-badge status-late">Late</span>';
-                                        } elseif ($row['attend_status'] == 'Volunteer') {
-                                            echo '<span class="status-badge status-volunteer">Volunteer</span>';
-                                        } else {
-                                            echo '<span class="status-badge status-absent">Absent</span>';
-                                        }
+                                        if ($row['attend_status'] == 'Present') echo '<span class="status-badge status-present">Present</span>';
+                                        elseif ($row['attend_status'] == 'Late') echo '<span class="status-badge status-late">Late</span>';
+                                        elseif ($row['attend_status'] == 'Volunteer') echo '<span class="status-badge status-volunteer">Volunteer</span>';
+                                        else echo '<span class="status-badge status-absent">Absent</span>';
                                         ?>
                                     </td>
                                     <td class="points-awarded">
                                         <?php 
                                         $points = $row['point_awarded'];
-                                        if ($points > 0) {
-                                            echo '+' . $points;
-                                        } else {
-                                            echo $points;
-                                        }
+                                        echo ($points > 0) ? '+' . $points : $points;
                                         ?>
                                     </td>
                                     <td>
@@ -567,11 +457,7 @@ if($sidebar_stmt) {
                     </table>
                 <?php else: ?>
                     <p style="color: #718096; font-style: italic; padding: 20px 0; text-align: center; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e0;">
-                        <?php if (!empty($selected_event_id)): ?>
-                            No attendance records found for the selected event.
-                        <?php else: ?>
-                            No attendance records found in the system yet.
-                        <?php endif; ?>
+                        <?php echo !empty($selected_event_id) ? 'No attendance records found for the selected event.' : 'No attendance records found in the system yet.'; ?>
                     </p>
                 <?php endif; ?>
             </div>
@@ -671,7 +557,6 @@ if($sidebar_stmt) {
                 <?php if ($selected_event_id): ?>
                     <input type="hidden" name="filter_event_id" value="<?php echo $selected_event_id; ?>">
                 <?php endif; ?>
-                
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">Attendance Status</label>
                 <select name="attend_status" required>
                     <option value="Present" <?php echo $edit_record['attend_status'] == 'Present' ? 'selected' : ''; ?>>Present (+10 points)</option>
@@ -679,11 +564,9 @@ if($sidebar_stmt) {
                     <option value="Volunteer" <?php echo $edit_record['attend_status'] == 'Volunteer' ? 'selected' : ''; ?>>Volunteer (+15 points)</option>
                     <option value="Absent" <?php echo $edit_record['attend_status'] == 'Absent' ? 'selected' : ''; ?>>Absent (-10 points)</option>
                 </select>
-                
                 <label style="display: block; margin-bottom: 5px; font-weight: 600;">Points to Award</label>
                 <input type="number" name="point_awarded" value="<?php echo $edit_record['point_awarded']; ?>" required>
                 <small style="color: #718096;">Volunteer: +15 | Present: +10 | Late: +5 | Absent: -10</small>
-                
                 <div style="margin-top: 20px;">
                     <button type="submit" name="update_attendance" class="btn-submit">💾 Save Changes</button>
                     <a href="<?php echo $current_page; ?><?php echo $selected_event_id ? '?filter_event_id='.$selected_event_id : ''; ?>" class="btn-cancel">Cancel</a>

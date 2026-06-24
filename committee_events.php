@@ -3,7 +3,7 @@ session_start();
 require 'db_connect.php';
 require 'session_timeout.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Committee') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Committee') {
     header("Location: index.php");
     exit();
 }
@@ -12,11 +12,10 @@ $user_id = $_SESSION['user_id'];
 $message = "";
 $edit_event = null;
 
-// Get club info
 $stmt = $conn->prepare("
     SELECT c.club_id, c.club_name, com.position 
-    FROM `committee` com 
-    JOIN `club` c ON com.club_id = c.club_id 
+    FROM committee com 
+    JOIN club c ON com.club_id = c.club_id 
     WHERE com.user_id = ?
 ");
 $stmt->bind_param("s", $user_id);
@@ -31,7 +30,6 @@ if (!$club) {
     $club_name = $club['club_name'];
 }
 
-// ==================== CREATE EVENT ====================
 if (isset($_POST['create_event'])) {
     $event_name = trim($_POST['event_name']);
     $date = $_POST['date'];
@@ -41,11 +39,10 @@ if (isset($_POST['create_event'])) {
     $description = trim($_POST['description']);
     $qr_token = bin2hex(random_bytes(16));
     
-    // Generate event ID (EVT + timestamp)
     $event_id = 'EVT' . date('ymd') . rand(100, 999);
     
     $insert_stmt = $conn->prepare("
-        INSERT INTO `event` (event_id, event_name, club_id, date, time, venue, max_cap, description, qr_token) 
+        INSERT INTO event (event_id, event_name, club_id, date, time, venue, max_cap, description, qr_token) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     $insert_stmt->bind_param("ssssssiss", $event_id, $event_name, $club_id, $date, $time, $venue, $max_cap, $description, $qr_token);
@@ -57,7 +54,6 @@ if (isset($_POST['create_event'])) {
     }
 }
 
-// ==================== UPDATE EVENT ====================
 if (isset($_POST['update_event'])) {
     $event_id = $_POST['event_id'];
     $event_name = trim($_POST['event_name']);
@@ -68,32 +64,25 @@ if (isset($_POST['update_event'])) {
     $description = trim($_POST['description']);
     
     $update_stmt = $conn->prepare("
-        UPDATE `event` 
+        UPDATE event 
         SET event_name = ?, date = ?, time = ?, venue = ?, max_cap = ?, description = ? 
         WHERE event_id = ? AND club_id = ?
     ");
-    // (This contains the bind_param fix we just did!)
     $update_stmt->bind_param("ssssisss", $event_name, $date, $time, $venue, $max_cap, $description, $event_id, $club_id);
     
     if ($update_stmt->execute()) {
         $message = "<div style='background:#c6f6d5; color:#22543d; padding:12px; border-radius:8px; margin-bottom:20px;'>✏️ Event updated successfully!</div>";
-        
-        // --- NEW CODE: Auto-close modal and clean up the URL ---
         unset($_GET['edit_id']); 
         echo "<script>window.history.replaceState(null, null, window.location.pathname);</script>";
-        // -------------------------------------------------------
-        
     } else {
         $message = "<div style='background:#fed7d7; color:#822727; padding:12px; border-radius:8px; margin-bottom:20px;'>❌ Update failed: " . $conn->error . "</div>";
     }
 }
 
-// ==================== DELETE EVENT ====================
 if (isset($_POST['delete_event'])) {
     $event_id = $_POST['event_id'];
     
-    // Check if event has registrations
-    $check_stmt = $conn->prepare("SELECT COUNT(*) as cnt FROM `event_registration` WHERE event_id = ?");
+    $check_stmt = $conn->prepare("SELECT COUNT(*) as cnt FROM event_registration WHERE event_id = ?");
     $check_stmt->bind_param("s", $event_id);
     $check_stmt->execute();
     $has_registrations = $check_stmt->get_result()->fetch_assoc()['cnt'];
@@ -101,7 +90,7 @@ if (isset($_POST['delete_event'])) {
     if ($has_registrations > 0) {
         $message = "<div style='background:#fed7d7; color:#822727; padding:12px; border-radius:8px; margin-bottom:20px;'>⚠️ Cannot delete: This event has $has_registrations registration(s).</div>";
     } else {
-        $del_stmt = $conn->prepare("DELETE FROM `event` WHERE event_id = ? AND club_id = ?");
+        $del_stmt = $conn->prepare("DELETE FROM event WHERE event_id = ? AND club_id = ?");
         $del_stmt->bind_param("ss", $event_id, $club_id);
         if ($del_stmt->execute()) {
             $message = "<div style='background:#c6f6d5; color:#22543d; padding:12px; border-radius:8px; margin-bottom:20px;'>🗑️ Event deleted successfully!</div>";
@@ -109,22 +98,20 @@ if (isset($_POST['delete_event'])) {
     }
 }
 
-// ==================== GET EVENT FOR EDIT ====================
 if (isset($_GET['edit_id'])) {
     $edit_id = $_GET['edit_id'];
-    $edit_stmt = $conn->prepare("SELECT * FROM `event` WHERE event_id = ? AND club_id = ?");
+    $edit_stmt = $conn->prepare("SELECT * FROM event WHERE event_id = ? AND club_id = ?");
     $edit_stmt->bind_param("ss", $edit_id, $club_id);
     $edit_stmt->execute();
     $edit_event = $edit_stmt->get_result()->fetch_assoc();
 }
 
-// ==================== GET ALL EVENTS ====================
 $events = [];
 if ($club_id) {
     $events_stmt = $conn->prepare("
         SELECT e.*, 
-            (SELECT COUNT(*) FROM `event_registration` WHERE event_id = e.event_id AND status = 'Registered') AS registered_count 
-        FROM `event` e 
+            (SELECT COUNT(*) FROM event_registration WHERE event_id = e.event_id AND status = 'Registered') AS registered_count 
+        FROM event e 
         WHERE e.club_id = ? 
         ORDER BY e.date ASC
     ");
@@ -132,28 +119,17 @@ if ($club_id) {
     $events_stmt->execute();
     $events = $events_stmt->get_result();
 }
-
-// Fetch pending count for sidebar (not used for committee but for consistency)
-$sidebar_pending_count = 0;
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Events - Committee</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { display: flex; background: #e2e8f0; min-height: 100vh; }
-        
-        .nav-links { display: flex; flex-direction: column; gap: 15px; flex-grow: 1; }
-        .nav-links a { text-decoration: none; color: #a0aec0; font-weight: 600; padding: 12px 15px; border-radius: 8px; display: block; }
-        .nav-links a:hover, .nav-links a.active { background-color: #2d3748; color: white; }
-        .btn-logout { background-color: #e53e3e; text-align: center; padding: 12px; border-radius: 8px; margin-top: auto; color: white; text-decoration: none; display: block; }
-        
         .main-content { margin-left: 260px; padding: 40px; width: calc(100% - 260px); }
         .welcome-card { background: white; padding: 25px 30px; border-radius: 12px; margin-bottom: 30px; border-left: 6px solid #38a169; }
         .btn-create { background: #3182ce; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; margin-bottom: 25px; font-weight: 600; }
@@ -175,7 +151,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
         .btn-qr:hover { background: #6b46c0; }
         .badge-upcoming { background: #c6f6d5; color: #22543d; padding: 4px 8px; border-radius: 20px; font-size: 11px; }
         .badge-past { background: #e2e8f0; color: #4a5568; padding: 4px 8px; border-radius: 20px; font-size: 11px; }
-        
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 2000; }
         .modal-content { background: white; border-radius: 16px; width: 90%; max-width: 500px; padding: 30px; }
         .modal-content input, .modal-content textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Inter', sans-serif; }
@@ -198,7 +173,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <button class="btn-create" onclick="openCreateModal()">+ Create New Event</button>
 
     <div class="grid-container">
-        <?php if ($events && $events->num_rows > 0): ?>
+        <?php if ($events && is_object($events) && $events->num_rows > 0): ?>
             <?php while($event = $events->fetch_assoc()): 
                 $percentage = ($event['max_cap'] > 0) ? ($event['registered_count'] / $event['max_cap']) * 100 : 0;
                 $is_past = strtotime($event['date']) < strtotime(date('Y-m-d'));
@@ -222,7 +197,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <div class="description-text">📝 <?php echo htmlspecialchars($event['description']); ?></div>
                         <?php endif; ?>
                         
-                        <div class="capacity-bar"><div class="capacity-fill" style="width: <?php echo $percentage; ?>%;"></div></div>
+                        <div class="capacity-bar"><div class="capacity-fill" style="width: <?php echo min(100, $percentage); ?>%;"></div></div>
                         <div class="event-detail">👥 <?php echo $event['registered_count']; ?> / <?php echo $event['max_cap']; ?> registered</div>
                         
                         <div class="event-actions">
@@ -230,7 +205,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <a href="generate_qr.php?event_id=<?php echo $event['event_id']; ?>" class="btn-qr" target="_blank">📱 QR Code</a>
                             <a href="?edit_id=<?php echo $event['event_id']; ?>" class="btn-edit">✏️ Edit</a>
                             <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this event? This action cannot be undone.');">
-                                <input type="hidden" name="event_id" value="<?php echo $event['event_id']; ?>">
+                                <input type="hidden" name="event_id" value="<?php echo htmlspecialchars($event['event_id']); ?>">
                                 <button type="submit" name="delete_event" class="btn-delete">🗑️ Delete</button>
                             </form>
                         </div>
@@ -238,14 +213,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 </div>
             <?php endwhile; ?>
         <?php else: ?>
-            <div style="background:#f7fafc; padding:60px; text-align:center; border-radius:12px; color:#718096;">
+            <div style="background:#f7fafc; padding:60px; text-align:center; border-radius:12px; color:#718096; grid-column: 1 / -1;">
                 No events yet. Click "Create New Event" to get started!
             </div>
         <?php endif; ?>
     </div>
 </div>
 
-<!-- Create Modal -->
 <div id="createModal" class="modal">
     <div class="modal-content">
         <h3>➕ Create New Event</h3>
@@ -262,18 +236,17 @@ $current_page = basename($_SERVER['PHP_SELF']);
     </div>
 </div>
 
-<!-- Edit Modal -->
 <?php if ($edit_event): ?>
 <div id="editModal" class="modal" style="display: flex;">
     <div class="modal-content">
         <h3>✏️ Edit Event</h3>
         <form method="POST">
-            <input type="hidden" name="event_id" value="<?php echo $edit_event['event_id']; ?>">
+            <input type="hidden" name="event_id" value="<?php echo htmlspecialchars($edit_event['event_id']); ?>">
             <input type="text" name="event_name" value="<?php echo htmlspecialchars($edit_event['event_name']); ?>" required>
-            <input type="date" name="date" value="<?php echo $edit_event['date']; ?>" required>
-            <input type="time" name="time" value="<?php echo $edit_event['time']; ?>" required>
+            <input type="date" name="date" value="<?php echo htmlspecialchars($edit_event['date']); ?>" required>
+            <input type="time" name="time" value="<?php echo htmlspecialchars($edit_event['time']); ?>" required>
             <input type="text" name="venue" value="<?php echo htmlspecialchars($edit_event['venue']); ?>" required>
-            <input type="number" name="max_cap" value="<?php echo $edit_event['max_cap']; ?>" required>
+            <input type="number" name="max_cap" value="<?php echo htmlspecialchars($edit_event['max_cap']); ?>" required>
             <textarea name="description" rows="4" placeholder="Event Description"><?php echo htmlspecialchars($edit_event['description'] ?? ''); ?></textarea>
             <button type="submit" name="update_event" class="btn-submit">💾 Save Changes</button>
             <a href="committee_events.php" class="btn-cancel">Cancel</a>

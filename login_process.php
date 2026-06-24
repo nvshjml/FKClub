@@ -7,7 +7,7 @@ if (isset($_POST['login_btn'])) {
     $user_id_input = $_POST['user_id'];
     $password = $_POST['password'];
 
-    $sql = "SELECT * FROM `USER` WHERE user_id = ?";
+    $sql = "SELECT * FROM `user` WHERE user_id = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("s", $user_id_input);
     $stmt->execute();

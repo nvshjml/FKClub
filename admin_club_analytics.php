@@ -3,25 +3,19 @@ session_start();
 require 'db_connect.php';
 require 'session_timeout.php';
 
-// Force no-cache
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
     header("Location: index.php");
     exit();
 }
 
 $current_page = basename($_SERVER['PHP_SELF']);
 $message = "";
-
-// Capture workspace routing states securely
 $target_club_id = isset($_GET['manage_club_id']) ? trim($_GET['manage_club_id']) : '';
 
-// ---------------------------------------------------------
-// HANDLE ADD NEW CLUB
-// ---------------------------------------------------------
 if (isset($_POST['add_club_btn'])) {
     $club_name = trim($_POST['club_name']);
     $isActive = intval($_POST['isActive']);
@@ -44,9 +38,6 @@ if (isset($_POST['add_club_btn'])) {
     }
 }
 
-// ---------------------------------------------------------
-// HANDLE UPDATE CLUB INFORMATION
-// ---------------------------------------------------------
 if (isset($_POST['update_club_btn'])) {
     $club_id = trim($_POST['club_id']);
     $club_name = trim($_POST['club_name']);
@@ -64,9 +55,6 @@ if (isset($_POST['update_club_btn'])) {
     }
 }
 
-// ---------------------------------------------------------
-// HANDLE DELETE CLUB
-// ---------------------------------------------------------
 if (isset($_POST['delete_club_id'])) {
     $del_stmt = $conn->prepare("DELETE FROM CLUB WHERE club_id = ?");
     if ($del_stmt->execute([$_POST['delete_club_id']])) {
@@ -74,9 +62,6 @@ if (isset($_POST['delete_club_id'])) {
     }
 }
 
-// ---------------------------------------------------------
-// HANDLE REMOVE MEMBER FROM COMMITTEE
-// ---------------------------------------------------------
 if (isset($_POST['remove_member_btn'])) {
     $remove_user_id = trim($_POST['remove_user_id']);
     $remove_club_id = trim($_POST['remove_club_id']);
@@ -91,9 +76,6 @@ if (isset($_POST['remove_member_btn'])) {
     }
 }
 
-// ---------------------------------------------------------
-// HANDLE UPDATE MEMBER POSITION (With Automated Panel Dismissal)
-// ---------------------------------------------------------
 if (isset($_POST['update_membership_btn'])) {
     $update_user_id = trim($_POST['membership_user_id']);
     $update_club_id = trim($_POST['membership_club_id']);
@@ -116,7 +98,6 @@ if (isset($_POST['update_membership_btn'])) {
         $stmt->bind_param("sss", $new_position, $update_user_id, $update_club_id);
         
         if ($stmt->execute()) {
-            // Success: Automatically close panel by removing query parameters on redirect
             $_SESSION['dashboard_flash_msg'] = "<div class='alert alert-success'>✅ Committee member position updated successfully!</div>";
             header("Location: " . $current_page);
             exit();
@@ -126,15 +107,11 @@ if (isset($_POST['update_membership_btn'])) {
     }
 }
 
-// Check for cross-page session message flags
 if (isset($_SESSION['dashboard_flash_msg'])) {
     $message = $_SESSION['dashboard_flash_msg'];
     unset($_SESSION['dashboard_flash_msg']);
 }
 
-// ---------------------------------------------------------
-// FETCH MODULE 2 SUMMARY STATISTICS
-// ---------------------------------------------------------
 $total_clubs_query = $conn->query("SELECT COUNT(*) AS total FROM CLUB");
 $total_clubs = $total_clubs_query->fetch_assoc()['total'];
 
@@ -150,9 +127,6 @@ $students_involved_query = $conn->query("
 ");
 $students_involved = $students_involved_query->fetch_assoc()['total'];
 
-// ---------------------------------------------------------
-// FETCH CHART DATA
-// ---------------------------------------------------------
 $distribution_query = $conn->query("
     SELECT c.club_name, COUNT(DISTINCT combined.user_id) as member_count 
     FROM CLUB c 
@@ -172,9 +146,6 @@ while($row = $distribution_query->fetch_assoc()) {
     $member_data[] = $row['member_count'];
 }
 
-// ---------------------------------------------------------
-// FETCH TABLE DATA FOR MANAGEMENT
-// ---------------------------------------------------------
 $clubs_sql = "
     SELECT c.club_id, c.club_name, c.isActive, c.advisor_name, u.name AS president_name 
     FROM CLUB c 
@@ -194,37 +165,30 @@ $clubs_result = $conn->query($clubs_sql);
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { background: #e2e8f0; display: flex; min-height: 100vh; }
-        
         .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; width: calc(100% - 260px); }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;}
         .page-header h1 { color: #1a202c; font-size: 28px; font-weight: 700; }
-        
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px; }
         .stat-card { background: white; padding: 25px 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; border-bottom: 4px solid #3182ce; }
         .stat-card h3 { color: #718096; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
         .stat-card .number { font-size: 32px; font-weight: 800; color: #2d3748; }
-
         .charts-grid { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 30px; }
         .chart-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .chart-card h3 { color: #2d3748; font-size: 16px; margin-bottom: 20px; border-bottom: 2px solid #edf2f7; padding-bottom: 10px;}
         .chart-container { position: relative; height: 300px; width: 100%; display: flex; justify-content: center;}
-
         .section-header { display: flex; justify-content: space-between; align-items: center; background: #e2e8f0; padding: 12px 20px; border-radius: 8px 8px 0 0; border: 1px solid #cbd5e0; border-bottom: none; }
         .section-header h2 { color: #2d3748; font-size: 15px; font-weight: 700; margin: 0; }
         .btn-add { background: #3182ce; color: white; padding: 8px 15px; border-radius: 6px; border: none; font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none; display: inline-block; }
         .btn-add:hover { background: #2b6cb0; }
-
         .table-card { background: white; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 30px; border: 1px solid #cbd5e0; }
         .table-responsive { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; min-width: 800px; }
         th { padding: 15px 20px; font-size: 12px; color: #718096; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
         td { padding: 15px 20px; color: #4a5568; border-bottom: 1px solid #edf2f7; font-size: 14px; white-space: nowrap; }
-        
         .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
         .status-active { background: #c6f6d5; color: #22543d; }
         .status-inactive { background: #fed7d7; color: #822727; }
         .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #e2e8f0; color: #4a5568; }
-
         .action-links { display: flex; gap: 6px; align-items: center; }
         .btn-sm { padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; text-decoration: none; background: transparent; border: 1px solid transparent; }
         .btn-edit { color: #3182ce; border: 1px solid #bee3f8; background: #ebf8ff;}
@@ -233,28 +197,22 @@ $clubs_result = $conn->query($clubs_sql);
         .btn-manage:hover { background: #e9d8fd; }
         .btn-delete { color: #e53e3e; border: 1px solid #fed7d7; background: #fff5f5;}
         .btn-delete:hover { background: #fed7d7; }
-
         .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; font-size: 14px; }
         .alert-success { background: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
         .alert-error { background: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
-
-        /* MODAL OVERLAYS */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 2000; justify-content: center; align-items: center; }
         .modal-card { background: white; width: 100%; max-width: 500px; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-top: 4px solid #3182ce; animation: slideDown 0.2s ease-out; }
         @keyframes slideDown { from { transform: translateY(-15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .modal-header h3 { color: #1a202c; font-size: 18px; font-weight: 700; }
         .modal-close-btn { font-size: 24px; color: #a0aec0; cursor: pointer; background: none; border: none; font-weight: bold; }
         .modal-close-btn:hover { color: #4a5568; }
-        
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; font-weight: 700; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; color: #4a5568; text-align: left; }
         .form-group input[type="text"], .form-group select { width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid #cbd5e0; font-size: 14px; color: #2d3748; outline: none; background: #fff; }
         .form-group input:focus, .form-group select:focus { border-color: #3182ce; box-shadow: 0 0 0 3px rgba(49,130,206,0.1); }
         .btn-submit-form { background: #3182ce; color: white; border: none; padding: 12px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; width: 100%; margin-top: 10px; }
         .btn-submit-form:hover { background: #2b6cb0; }
-
         @media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 768px) {
             .main-content { margin-left: 200px; width: calc(100% - 200px); padding: 20px; }
@@ -263,9 +221,7 @@ $clubs_result = $conn->query($clubs_sql);
     </style>
 </head>
 <body>
-
     <?php include 'sidebar.php'; ?>
-
     <div class="main-content">
         <div class="page-header">
             <h1>Club Management Analytics</h1>
@@ -373,7 +329,6 @@ $clubs_result = $conn->query($clubs_sql);
                                         <td>
                                             <div class="action-links">
                                                 <button type="button" class="btn-sm btn-edit" style="background: #fffdf5; color: #b7791f; border-color: #fbd38d;" onclick="openMembershipModal('<?php echo htmlspecialchars($m['user_id'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($m['name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($target_club_id, ENT_QUOTES); ?>', '<?php echo htmlspecialchars($m['position'], ENT_QUOTES); ?>')">Edit Position</button>
-                                                
                                                 <form method="POST" onsubmit="return confirm('Are you sure you want to remove this member from the club?');" style="margin:0;">
                                                     <input type="hidden" name="remove_user_id" value="<?php echo htmlspecialchars($m['user_id']); ?>">
                                                     <input type="hidden" name="remove_club_id" value="<?php echo htmlspecialchars($target_club_id); ?>">
@@ -395,7 +350,6 @@ $clubs_result = $conn->query($clubs_sql);
             endif;
         endif; 
         ?>
-
     </div>
 
     <div id="addClubModal" class="modal-overlay">
@@ -454,11 +408,9 @@ $clubs_result = $conn->query($clubs_sql);
             <form method="POST" action="">
                 <input type="hidden" name="membership_user_id" id="member_user_id">
                 <input type="hidden" name="membership_club_id" id="member_club_id">
-                
                 <p style="margin-bottom: 20px; color: #4a5568; font-size: 14px;">
                     Updating role for: <strong id="member_display_name">Student</strong>
                 </p>
-                
                 <div class="form-group">
                     <label>New Position/Role:</label>
                     <select name="position" id="member_position">
@@ -475,13 +427,8 @@ $clubs_result = $conn->query($clubs_sql);
     </div>
 
     <script>
-        // Modal Window Visibility Handlers
-        function openAddClubModal() {
-            document.getElementById('addClubModal').style.display = 'flex';
-        }
-        function closeAddClubModal() {
-            document.getElementById('addClubModal').style.display = 'none';
-        }
+        function openAddClubModal() { document.getElementById('addClubModal').style.display = 'flex'; }
+        function closeAddClubModal() { document.getElementById('addClubModal').style.display = 'none'; }
 
         function openEditClubModal(id, name, active) {
             document.getElementById('edit_club_id').value = id;
@@ -489,9 +436,7 @@ $clubs_result = $conn->query($clubs_sql);
             document.getElementById('edit_isActive').value = active;
             document.getElementById('editClubModal').style.display = 'flex';
         }
-        function closeEditClubModal() {
-            document.getElementById('editClubModal').style.display = 'none';
-        }
+        function closeEditClubModal() { document.getElementById('editClubModal').style.display = 'none'; }
 
         function openMembershipModal(userId, userName, clubId, currentPosition) {
             document.getElementById('member_user_id').value = userId;
@@ -500,18 +445,14 @@ $clubs_result = $conn->query($clubs_sql);
             document.getElementById('member_position').value = currentPosition;
             document.getElementById('editMembershipModal').style.display = 'flex';
         }
-        function closeMembershipModal() {
-            document.getElementById('editMembershipModal').style.display = 'none';
-        }
+        function closeMembershipModal() { document.getElementById('editMembershipModal').style.display = 'none'; }
 
-        // Global background click detector to clear modals
         window.addEventListener('click', function(event) {
             if (event.target === document.getElementById('addClubModal')) closeAddClubModal();
             if (event.target === document.getElementById('editClubModal')) closeEditClubModal();
             if (event.target === document.getElementById('editMembershipModal')) closeMembershipModal();
         });
 
-        // Initialize Smooth Viewport anchor adjustments if panel is active
         window.addEventListener('DOMContentLoaded', () => {
             if(window.location.hash === '#committee_panel') {
                 const el = document.getElementById('committee_panel');
@@ -519,7 +460,6 @@ $clubs_result = $conn->query($clubs_sql);
             }
         });
 
-        // ChartJS Implementation
         Chart.defaults.font.family = "'Inter', sans-serif";
         Chart.defaults.color = "#718096";
 

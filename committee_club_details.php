@@ -1,225 +1,221 @@
 <?php
 session_start();
 require 'db_connect.php';
-require 'session_timeout.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Committee') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Committee') {
     header("Location: index.php");
     exit();
 }
 
 $user_id = $_SESSION['user_id'];
-$user_name = $_SESSION['name'];
 $message = "";
-$current_page = basename($_SERVER['PHP_SELF']);
 
-$club_id = null;
-$club_name = "No Club Assigned";
-$position = "N/A";
-$club = [
-    'club_id' => null,
-    'club_name' => 'No Club Assigned',
-    'description' => 'No description available.',
-    'advisor_name' => 'Not Assigned',
-    'isActive' => 0
-];
+if (isset($_POST['update_club'])) {
+    $upd_club_id = $_POST['club_id'];
+    $description = trim($_POST['description']);
+    $advisor_name = trim($_POST['advisor_name']);
 
-$stmt = $conn->prepare("SELECT c.*, com.position FROM `committee` com JOIN `club` c ON com.club_id = c.club_id WHERE com.user_id = ?");
+    $auth_check = $conn->prepare("SELECT position FROM committee WHERE user_id = ? AND club_id = ? AND position IN ('President', 'Vice President', 'Secretary', 'Treasurer')");
+    $auth_check->bind_param("ss", $user_id, $upd_club_id);
+    $auth_check->execute();
+    
+    if ($auth_check->get_result()->num_rows > 0) {
+        $upd_stmt = $conn->prepare("UPDATE club SET description = ?, advisor_name = ? WHERE club_id = ?");
+        $upd_stmt->bind_param("sss", $description, $advisor_name, $upd_club_id);
+        if ($upd_stmt->execute()) {
+            $message = "<div class='alert alert-success'>✅ Club profile updated successfully!</div>";
+        } else {
+            $message = "<div class='alert alert-error'>❌ Error updating club: " . $conn->error . "</div>";
+        }
+    } else {
+        $message = "<div class='alert alert-error'>❌ Unauthorized to edit this club.</div>";
+    }
+}
+
+$auth_clubs = [];
+$stmt = $conn->prepare("
+    SELECT c.club_id, c.club_name, com.position 
+    FROM committee com 
+    JOIN club c ON com.club_id = c.club_id 
+    WHERE com.user_id = ? AND com.position IN ('President', 'Vice President', 'Secretary', 'Treasurer')
+");
 $stmt->bind_param("s", $user_id);
 $stmt->execute();
-$result = $stmt->get_result();
-$club_data = $result->fetch_assoc();
-
-if ($club_data && $club_data['club_id']) {
-    $club_id = $club_data['club_id'];
-    $club_name = $club_data['club_name'];
-    $position = $club_data['position'];
-    $club = $club_data;
+$res = $stmt->get_result();
+while ($row = $res->fetch_assoc()) {
+    $auth_clubs[] = $row;
 }
 
-$committee_members = [];
-if ($club_id) {
-    $stmt2 = $conn->prepare("SELECT u.name, u.user_id, com.position FROM `committee` com JOIN `user` u ON com.user_id = u.user_id WHERE com.club_id = ? ORDER BY FIELD(com.position, 'President', 'Vice President', 'Secretary', 'Treasurer', 'Committee Member')");
-    $stmt2->bind_param("i", $club_id);
-    $stmt2->execute();
-    $committee_members = $stmt2->get_result();
-}
+$selected_club_id = $_GET['club_id'] ?? ($auth_clubs[0]['club_id'] ?? null);
 
-$member_count = 0;
-if ($club_id) {
-    $stmt3 = $conn->prepare("SELECT COUNT(*) as total FROM `club_membership` WHERE club_id = ? AND status = 'Approved'");
-    $stmt3->bind_param("i", $club_id);
-    $stmt3->execute();
-    $result3 = $stmt3->get_result();
-    if ($result3) $member_count = $result3->fetch_assoc()['total'];
-}
+$club_data = null;
+$total_events = 0;
+$total_registrations = 0;
+$attendance_rate = 0;
+$total_members = 0;
 
-$event_count = 0;
-if ($club_id) {
-    $stmt4 = $conn->prepare("SELECT COUNT(*) as total FROM `event` WHERE club_id = ?");
-    $stmt4->bind_param("i", $club_id);
-    $stmt4->execute();
-    $result4 = $stmt4->get_result();
-    if ($result4) $event_count = $result4->fetch_assoc()['total'];
-}
+if ($selected_club_id) {
+    $c_stmt = $conn->prepare("SELECT * FROM club WHERE club_id = ?");
+    $c_stmt->bind_param("s", $selected_club_id);
+    $c_stmt->execute();
+    $club_data = $c_stmt->get_result()->fetch_assoc();
 
-if (isset($_POST['update_club']) && $club_id) {
-    $new_description = trim($_POST['description']);
-    $update_stmt = $conn->prepare("UPDATE `club` SET description = ? WHERE club_id = ?");
-    $update_stmt->bind_param("si", $new_description, $club_id);
-    if ($update_stmt->execute()) {
-        $message = "<div style='background:#c6f6d5; color:#22543d; padding:12px; border-radius:8px; margin-bottom:20px;'>✅ Club description updated successfully!</div>";
-        $club['description'] = $new_description;
+    $stat_evt = $conn->prepare("SELECT COUNT(*) as t FROM event WHERE club_id = ?");
+    $stat_evt->bind_param("s", $selected_club_id); 
+    $stat_evt->execute();
+    $total_events = $stat_evt->get_result()->fetch_assoc()['t'];
+
+    $stat_reg = $conn->prepare("SELECT COUNT(*) as t FROM event_registration er JOIN event e ON er.event_id = e.event_id WHERE e.club_id = ?");
+    $stat_reg->bind_param("s", $selected_club_id); 
+    $stat_reg->execute();
+    $total_registrations = $stat_reg->get_result()->fetch_assoc()['t'];
+
+    $stat_mem = $conn->prepare("SELECT COUNT(*) as t FROM club_membership WHERE club_id = ? AND status = 'Approved'");
+    $stat_mem->bind_param("s", $selected_club_id); 
+    $stat_mem->execute();
+    $total_members = $stat_mem->get_result()->fetch_assoc()['t'];
+
+    $stat_att = $conn->prepare("
+        SELECT 
+            (SELECT COUNT(*) FROM attendance a JOIN event_registration er ON a.register_id = er.register_id JOIN event e ON er.event_id = e.event_id WHERE e.club_id = ? AND a.attend_status IN ('Present', 'Late', 'Volunteer')) as attended,
+            (SELECT COUNT(*) FROM event_registration er JOIN event e ON er.event_id = e.event_id WHERE e.club_id = ? AND er.status = 'Registered' AND e.date <= CURDATE()) as expected
+    ");
+    $stat_att->bind_param("ss", $selected_club_id, $selected_club_id);
+    $stat_att->execute();
+    $att_data = $stat_att->get_result()->fetch_assoc();
+    if ($att_data['expected'] > 0) {
+        $attendance_rate = round(($att_data['attended'] / $att_data['expected']) * 100);
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Club Details</title>
+    <title>Club Management</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { display: flex; background: #e2e8f0; min-height: 100vh; color: #333; }
-        
-        /* THIS FIXES THE LAYOUT SHIFT */
-        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; width: calc(100% - 260px); }
-        
-        .welcome-card { background-color: white; padding: 25px 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; border-left: 6px solid #38a169; }
-        .welcome-card h2 { color: #1a202c; margin-bottom: 5px; }
-        .welcome-card p { color: #718096; }
-
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .stat-card h3 { font-size: 13px; color: #718096; text-transform: uppercase; letter-spacing: 1px; }
-        .stat-card .number { font-size: 2.5rem; font-weight: 700; color: #2d3748; margin-top: 10px; }
-
-        .section-title { font-size: 22px; color: #1a202c; margin-bottom: 20px; border-bottom: 2px solid #cbd5e0; padding-bottom: 10px; }
-        
-        .club-info-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; }
-        .club-header-bg { background: linear-gradient(135deg, #3182ce 0%, #2b6cb0 100%); padding: 30px; color: white; }
-        .club-header-bg h1 { font-size: 28px; margin-bottom: 10px; }
-        .club-body { padding: 25px; }
-        .info-row { display: flex; padding: 12px 0; border-bottom: 1px solid #edf2f7; }
-        .info-label { width: 140px; font-weight: 600; color: #4a5568; }
-        .info-value { flex: 1; color: #2d3748; }
-        
-        .edit-form { margin-top: 20px; padding-top: 20px; border-top: 2px dashed #e2e8f0; }
-        .edit-form textarea { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-family: 'Inter', sans-serif; resize: vertical; }
-        .btn-save { background: #38a169; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 10px; }
-        .btn-save:hover { background: #2f855a; }
-
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-        th { background: #f7fafc; font-weight: 600; color: #4a5568; }
-        tr:last-child td { border-bottom: none; }
-        
-        .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-        .badge-president { background: #fefcbf; color: #744210; }
-        .badge-vice { background: #fed7d7; color: #742a2a; }
-        .badge-secretary { background: #c6f6d5; color: #22543d; }
-        .badge-treasurer { background: #bee3f8; color: #2c5282; }
-        .badge-member { background: #e2e8f0; color: #4a5568; }
-        
-        .no-data { text-align: center; padding: 40px; color: #a0aec0; }
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; max-width: 1200px; }
+        .header-card { background-color: white; padding: 25px 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; border-left: 6px solid #3182ce; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;}
+        .header-text h2 { color: #1a202c; margin-bottom: 5px; }
+        .club-selector { padding: 10px 15px; border-radius: 8px; border: 2px solid #cbd5e0; outline: none; font-size: 15px; font-weight: 600; color: #2d3748; background: #f8fafc; min-width: 250px; cursor: pointer;}
+        .club-selector:focus { border-color: #3182ce; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .stat-card { background: white; padding: 25px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .stat-card h3 { font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;}
+        .stat-card .number { font-size: 2.8rem; font-weight: 800; color: #2d3748; }
+        .profile-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; }
+        .profile-header { background: #f8fafc; padding: 20px 30px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .profile-header h3 { color: #2d3748; font-size: 18px; }
+        .profile-body { padding: 30px; }
+        .info-group { margin-bottom: 20px; }
+        .info-label { font-size: 13px; color: #718096; font-weight: 600; text-transform: uppercase; margin-bottom: 5px; display: block;}
+        .info-value { font-size: 16px; color: #2d3748; line-height: 1.5;}
+        .form-input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px; font-family: 'Inter', sans-serif; margin-bottom: 15px;}
+        textarea.form-input { min-height: 120px; resize: vertical; }
+        .btn-action { background: #3182ce; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 14px;}
+        .btn-action:hover { background: #2b6cb0; }
+        .btn-cancel { background: #e2e8f0; color: #4a5568; margin-left: 10px;}
+        .btn-cancel:hover { background: #cbd5e0; }
+        .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; }
+        .alert-success { background-color: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
+        .alert-error { background-color: #fed7d7; color: #822727; border: 1px solid #feb2b2; }
     </style>
 </head>
 <body>
-
     <?php include 'sidebar.php'; ?>
 
     <div class="main-content">
         <?php echo $message; ?>
-        
-        <div class="welcome-card">
-            <h2>🏆 Club Management</h2>
-            <p><?php echo htmlspecialchars($position); ?> of <?php echo htmlspecialchars($club_name); ?> • View and manage your club details below.</p>
-        </div>
 
-        <div class="stats-grid">
-            <div class="stat-card" style="border-bottom: 4px solid #3182ce;"><h3>Total Members</h3><div class="number"><?php echo $member_count; ?></div></div>
-            <div class="stat-card" style="border-bottom: 4px solid #38a169;"><h3>Total Events</h3><div class="number"><?php echo $event_count; ?></div></div>
-            <div class="stat-card" style="border-bottom: 4px solid #805ad5;"><h3>Committee Size</h3><div class="number"><?php echo $committee_members ? $committee_members->num_rows : 0; ?></div></div>
-        </div>
-
-        <?php if ($club_id): ?>
-        <div class="club-info-card">
-            <div class="club-header-bg">
-                <h1><?php echo htmlspecialchars($club_name); ?></h1>
-                <p>Club Information & Details</p>
+        <?php if (empty($auth_clubs)): ?>
+            <div class="header-card" style="border-left-color: #e53e3e;">
+                <h2>⚠️ Access Restricted</h2>
+                <p>You do not currently hold a high-authority position (President, VP, Secretary, Treasurer) in any active clubs.</p>
             </div>
-            <div class="club-body">
-                <div class="info-row">
-                    <div class="info-label">Club ID</div>
-                    <div class="info-value"><?php echo htmlspecialchars($club_id); ?></div>
-                </div>
-                <div class="info-row">
-                    <div class="info-label">Advisor</div>
-                    <div class="info-value"><?php echo htmlspecialchars($club['advisor_name'] ?? 'Not Assigned'); ?></div>
-                </div>
-                <div class="info-row">
-                    <div class="info-label">Status</div>
-                    <div class="info-value">
-                        <?php if (isset($club['isActive']) && $club['isActive'] == 1): ?>
-                            <span class="badge badge-secretary">Active</span>
-                        <?php else: ?>
-                            <span class="badge badge-treasurer">Inactive</span>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <div class="info-row">
-                    <div class="info-label">Description</div>
-                    <div class="info-value"><?php echo htmlspecialchars($club['description'] ?? 'No description provided.'); ?></div>
+        <?php else: ?>
+
+            <div class="header-card">
+                <div class="header-text">
+                    <h2>🏢 Club Management</h2>
+                    <p style="color: #718096; font-size: 14px;">Select a club to view analytics and update its profile.</p>
                 </div>
                 
-                <div class="edit-form">
-                    <form method="POST" action="">
-                        <label style="font-weight: 600; display: block; margin-bottom: 8px;">Edit Club Description</label>
-                        <textarea name="description" rows="4" placeholder="Enter club description..."><?php echo htmlspecialchars($club['description'] ?? ''); ?></textarea>
-                        <button type="submit" name="update_club" class="btn-save">Save Description</button>
-                    </form>
+                <select class="club-selector" onchange="window.location.href='?club_id='+this.value">
+                    <?php foreach ($auth_clubs as $c): ?>
+                        <option value="<?php echo htmlspecialchars($c['club_id']); ?>" <?php echo ($selected_club_id === $c['club_id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($c['club_name']); ?> (<?php echo htmlspecialchars($c['position']); ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card" style="border-bottom: 4px solid #3182ce;">
+                    <h3>Total Events</h3><div class="number"><?php echo $total_events; ?></div>
+                </div>
+                <div class="stat-card" style="border-bottom: 4px solid #38a169;">
+                    <h3>Registrations</h3><div class="number"><?php echo $total_registrations; ?></div>
+                </div>
+                <div class="stat-card" style="border-bottom: 4px solid #805ad5;">
+                    <h3>Attendance Rate</h3><div class="number"><?php echo $attendance_rate; ?>%</div>
+                </div>
+                <div class="stat-card" style="border-bottom: 4px solid #ecc94b;">
+                    <h3>Club Members</h3><div class="number"><?php echo $total_members; ?></div>
                 </div>
             </div>
-        </div>
 
-        <h2 class="section-title">👥 Committee Members</h2>
-        <table>
-            <thead>
-                <tr><th>Position</th><th>Name</th><th>Matrix ID</th></tr>
-            </thead>
-            <tbody>
-                <?php if ($committee_members && $committee_members->num_rows > 0): ?>
-                    <?php while($member = $committee_members->fetch_assoc()): 
-                        $badge_class = 'badge-member';
-                        if ($member['position'] == 'President') $badge_class = 'badge-president';
-                        elseif ($member['position'] == 'Vice President') $badge_class = 'badge-vice';
-                        elseif ($member['position'] == 'Secretary') $badge_class = 'badge-secretary';
-                        elseif ($member['position'] == 'Treasurer') $badge_class = 'badge-treasurer';
-                    ?>
-                        <tr>
-                            <td><span class="badge <?php echo $badge_class; ?>"><?php echo htmlspecialchars($member['position']); ?></span></td>
-                            <td><?php echo htmlspecialchars($member['name']); ?></td>
-                            <td><?php echo htmlspecialchars($member['user_id']); ?></td>
-                        </tr>
-                    <?php endwhile; ?>
-                <?php else: ?>
-                    <tr><td colspan="3" class="no-data">No committee members found.</td></tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-        <?php else: ?>
-        <div class="club-info-card">
-            <div class="club-header-bg">
-                <h1>No Club Assigned</h1>
-                <p>You have not been assigned to any club yet.</p>
-            </div>
-            <div class="club-body">
-                <p style="color: #718096; text-align: center; padding: 40px;">Please contact the administrator to be assigned to a club.</p>
-            </div>
-        </div>
+            <?php if ($club_data): ?>
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <h3>📋 Club Profile: <?php echo htmlspecialchars($club_data['club_name']); ?></h3>
+                        <button class="btn-action" id="btnEdit" onclick="toggleEditMode(true)">✏️ Edit Profile</button>
+                    </div>
+                    
+                    <div class="profile-body">
+                        <div id="viewMode">
+                            <div class="info-group">
+                                <span class="info-label">Advisor Name</span>
+                                <div class="info-value"><?php echo htmlspecialchars($club_data['advisor_name'] ?? 'Not Assigned'); ?></div>
+                            </div>
+                            <div class="info-group">
+                                <span class="info-label">Club Description</span>
+                                <div class="info-value"><?php echo nl2br(htmlspecialchars($club_data['description'] ?? 'No description provided.')); ?></div>
+                            </div>
+                        </div>
+
+                        <form id="editMode" method="POST" action="" style="display: none;">
+                            <input type="hidden" name="club_id" value="<?php echo htmlspecialchars($club_data['club_id']); ?>">
+                            
+                            <div class="info-group">
+                                <label class="info-label">Advisor Name</label>
+                                <input type="text" name="advisor_name" class="form-input" value="<?php echo htmlspecialchars($club_data['advisor_name'] ?? ''); ?>" placeholder="E.g., Dr. Azlan" required>
+                            </div>
+                            
+                            <div class="info-group">
+                                <label class="info-label">Club Description</label>
+                                <textarea name="description" class="form-input" placeholder="What does this club do?" required><?php echo htmlspecialchars($club_data['description'] ?? ''); ?></textarea>
+                            </div>
+
+                            <div style="margin-top: 20px;">
+                                <button type="submit" name="update_club" class="btn-action" style="background:#38a169;">💾 Save Changes</button>
+                                <button type="button" class="btn-action btn-cancel" onclick="toggleEditMode(false)">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
+
+    <script>
+        function toggleEditMode(isEditing) {
+            document.getElementById('viewMode').style.display = isEditing ? 'none' : 'block';
+            document.getElementById('editMode').style.display = isEditing ? 'block' : 'none';
+            document.getElementById('btnEdit').style.display = isEditing ? 'none' : 'block';
+        }
+    </script>
 </body>
 </html>
