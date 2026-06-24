@@ -138,7 +138,7 @@ if (!$attendance_result) {
     die("Query Error: " . $conn->error);
 }
 
-$all_events_sql = "SELECT event_id, event_name, date, club_id FROM EVENT ORDER BY date DESC";
+$all_events_sql = "SELECT event_id, event_name, date, club_id FROM event ORDER BY date DESC";
 $all_events_result = $conn->query($all_events_sql);
 
 // Handle Filters
@@ -155,7 +155,7 @@ if ($filter_semester) {
 }
 
 // Fetch Summary Statistics
-$events_conducted_q = $conn->query("SELECT COUNT(*) AS total FROM EVENT e WHERE e.date <= CURDATE() AND $event_where");
+$events_conducted_q = $conn->query("SELECT COUNT(*) AS total FROM event e WHERE e.date <= CURDATE() AND $event_where");
 $events_conducted = $events_conducted_q->fetch_assoc()['total'];
 
 $participation_q = $conn->query("
