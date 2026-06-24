@@ -72,10 +72,17 @@ if (isset($_POST['update_event'])) {
         SET event_name = ?, date = ?, time = ?, venue = ?, max_cap = ?, description = ? 
         WHERE event_id = ? AND club_id = ?
     ");
-    $update_stmt->bind_param("sssssis", $event_name, $date, $time, $venue, $max_cap, $description, $event_id, $club_id);
+    // (This contains the bind_param fix we just did!)
+    $update_stmt->bind_param("ssssisss", $event_name, $date, $time, $venue, $max_cap, $description, $event_id, $club_id);
     
     if ($update_stmt->execute()) {
         $message = "<div style='background:#c6f6d5; color:#22543d; padding:12px; border-radius:8px; margin-bottom:20px;'>✏️ Event updated successfully!</div>";
+        
+        // --- NEW CODE: Auto-close modal and clean up the URL ---
+        unset($_GET['edit_id']); 
+        echo "<script>window.history.replaceState(null, null, window.location.pathname);</script>";
+        // -------------------------------------------------------
+        
     } else {
         $message = "<div style='background:#fed7d7; color:#822727; padding:12px; border-radius:8px; margin-bottom:20px;'>❌ Update failed: " . $conn->error . "</div>";
     }
