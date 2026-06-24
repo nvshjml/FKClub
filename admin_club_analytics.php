@@ -1,4 +1,9 @@
 <?php
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
 require 'db_connect.php';
 require 'session_timeout.php';
@@ -20,14 +25,14 @@ if (isset($_POST['add_club_btn'])) {
     $club_name = trim($_POST['club_name']);
     $isActive = intval($_POST['isActive']);
 
-    $check_stmt = $conn->prepare("SELECT club_id FROM CLUB WHERE club_name = ?");
+    $check_stmt = $conn->prepare("SELECT club_id FROM club WHERE club_name = ?");
     $check_stmt->bind_param("s", $club_name);
     $check_stmt->execute();
     
     if ($check_stmt->get_result()->num_rows > 0) {
         $message = "<div class='alert alert-error'>❌ Error: A club with this name already exists.</div>";
     } else {
-        $insert_stmt = $conn->prepare("INSERT INTO CLUB (club_name, isActive) VALUES (?, ?)");
+        $insert_stmt = $conn->prepare("INSERT INTO club (club_name, isActive) VALUES (?, ?)");
         $insert_stmt->bind_param("si", $club_name, $isActive);
         
         if ($insert_stmt->execute()) {
@@ -44,7 +49,7 @@ if (isset($_POST['update_club_btn'])) {
     $isActive = intval($_POST['isActive']);
 
     if (!empty($club_id) && !empty($club_name)) {
-        $update_stmt = $conn->prepare("UPDATE CLUB SET club_name = ?, isActive = ? WHERE club_id = ?");
+        $update_stmt = $conn->prepare("UPDATE club SET club_name = ?, isActive = ? WHERE club_id = ?");
         $update_stmt->bind_param("sis", $club_name, $isActive, $club_id);
         
         if ($update_stmt->execute()) {
@@ -56,7 +61,7 @@ if (isset($_POST['update_club_btn'])) {
 }
 
 if (isset($_POST['delete_club_id'])) {
-    $del_stmt = $conn->prepare("DELETE FROM CLUB WHERE club_id = ?");
+    $del_stmt = $conn->prepare("DELETE FROM club WHERE club_id = ?");
     if ($del_stmt->execute([$_POST['delete_club_id']])) {
         $message = "<div class='alert alert-success'>✅ Club deleted successfully!</div>";
     }
@@ -148,7 +153,7 @@ while($row = $distribution_query->fetch_assoc()) {
 
 $clubs_sql = "
     SELECT c.club_id, c.club_name, c.isActive, c.advisor_name, u.name AS president_name 
-    FROM CLUB c 
+    FROM club c 
     LEFT JOIN committee com ON c.club_id = com.club_id AND com.position = 'President' 
     LEFT JOIN `user` u ON com.user_id = u.user_id 
     ORDER BY c.club_name ASC
@@ -293,13 +298,13 @@ $clubs_result = $conn->query($clubs_sql);
 
         <?php 
         if (!empty($target_club_id)): 
-            $club_stmt = $conn->prepare("SELECT club_name FROM CLUB WHERE club_id = ?");
+            $club_stmt = $conn->prepare("SELECT club_name FROM club WHERE club_id = ?");
             $club_stmt->bind_param("s", $target_club_id);
             $club_stmt->execute();
             $target_club = $club_stmt->get_result()->fetch_assoc();
 
             if ($target_club):
-                $members_stmt = $conn->prepare("SELECT u.user_id, u.name, c.position FROM committee c JOIN `USER` u ON c.user_id = u.user_id WHERE c.club_id = ? ORDER BY c.position ASC, u.name ASC");
+                $members_stmt = $conn->prepare("SELECT u.user_id, u.name, c.position FROM committee c JOIN `user` u ON c.user_id = u.user_id WHERE c.club_id = ? ORDER BY c.position ASC, u.name ASC");
                 $members_stmt->bind_param("s", $target_club_id);
                 $members_stmt->execute();
                 $members_res = $members_stmt->get_result();
