@@ -3,7 +3,6 @@ session_start();
 require 'db_connect.php';
 require 'session_timeout.php';
 
-// Force no-cache
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
@@ -31,7 +30,6 @@ if (isset($_POST['approve_club'])) {
     }
 }
 
-// FIXED: Now deletes the record from the database completely instead of keeping it as 'Rejected'
 if (isset($_POST['reject_club'])) {
     $m_user_id = $_POST['member_user_id'];
     $m_club_id = $_POST['member_club_id'];
@@ -49,8 +47,8 @@ if (isset($_POST['reject_club'])) {
 $pending_clubs_sql = "
     SELECT cm.user_id, cm.club_id, u.name, c.club_name, cm.join_date 
     FROM club_membership cm 
-    JOIN `USER` u ON cm.user_id = u.user_id 
-    JOIN CLUB c ON cm.club_id = c.club_id 
+    JOIN `user` u ON cm.user_id = u.user_id 
+    JOIN club c ON cm.club_id = c.club_id 
     WHERE cm.status = 'Pending'
     ORDER BY cm.join_date ASC
 ";

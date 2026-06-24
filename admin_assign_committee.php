@@ -79,7 +79,7 @@ if (isset($_POST['assign_btn'])) {
 
 $selected_user = $_GET['user_id'] ?? '';
 $users = $conn->query("SELECT user_id, name FROM `USER` WHERE role = 'Committee'");
-$clubs = $conn->query("SELECT club_id, club_name FROM CLUB");
+$clubs = $conn->query("SELECT club_id, club_name FROM club");
 ?>
 <!DOCTYPE html>
 <html lang="en">

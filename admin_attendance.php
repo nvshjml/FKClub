@@ -14,27 +14,27 @@ $pk_column = 'attend_id';
 if (isset($_GET['delete_id'])) {
     $delete_id = intval($_GET['delete_id']);
     
-    $get_sql = "SELECT register_id, point_awarded FROM ATTENDANCE WHERE $pk_column = ?";
+    $get_sql = "SELECT register_id, point_awarded FROM attendance WHERE $pk_column = ?";
     $get_stmt = $conn->prepare($get_sql);
     $get_stmt->bind_param("i", $delete_id);
     $get_stmt->execute();
     $att_record = $get_stmt->get_result()->fetch_assoc();
     
     if ($att_record) {
-        $user_sql = "SELECT user_id FROM EVENT_REGISTRATION WHERE register_id = ?";
+        $user_sql = "SELECT user_id FROM event_registration WHERE register_id = ?";
         $user_stmt = $conn->prepare($user_sql);
         $user_stmt->bind_param("i", $att_record['register_id']);
         $user_stmt->execute();
         $user = $user_stmt->get_result()->fetch_assoc();
         
         if ($user) {
-            $update_user = "UPDATE `USER` SET total_point = GREATEST(0, total_point - ?) WHERE user_id = ?";
+            $update_user = "UPDATE `user` SET total_point = GREATEST(0, total_point - ?) WHERE user_id = ?";
             $update_stmt = $conn->prepare($update_user);
             $update_stmt->bind_param("is", $att_record['point_awarded'], $user['user_id']);
             $update_stmt->execute();
         }
         
-        $delete_sql = "DELETE FROM ATTENDANCE WHERE $pk_column = ?";
+        $delete_sql = "DELETE FROM attendance WHERE $pk_column = ?";
         $delete_stmt = $conn->prepare($delete_sql);
         $delete_stmt->bind_param("i", $delete_id);
         
@@ -49,7 +49,7 @@ if (isset($_POST['update_attendance'])) {
     $attend_status = $_POST['attend_status'];
     $new_points = intval($_POST['point_awarded']);
     
-    $old_sql = "SELECT point_awarded, register_id FROM ATTENDANCE WHERE $pk_column = ?";
+    $old_sql = "SELECT point_awarded, register_id FROM attendance WHERE $pk_column = ?";
     $old_stmt = $conn->prepare($old_sql);
     $old_stmt->bind_param("i", $attendance_id);
     $old_stmt->execute();
@@ -59,12 +59,12 @@ if (isset($_POST['update_attendance'])) {
         $old_points = $old_data['point_awarded'];
         $register_id = $old_data['register_id'];
         
-        $update_sql = "UPDATE ATTENDANCE SET attend_status = ?, point_awarded = ? WHERE $pk_column = ?";
+        $update_sql = "UPDATE attendance SET attend_status = ?, point_awarded = ? WHERE $pk_column = ?";
         $update_stmt = $conn->prepare($update_sql);
         $update_stmt->bind_param("sii", $attend_status, $new_points, $attendance_id);
         
         if ($update_stmt->execute()) {
-            $user_sql = "SELECT user_id FROM EVENT_REGISTRATION WHERE register_id = ?";
+            $user_sql = "SELECT user_id FROM event_registration WHERE register_id = ?";
             $user_stmt = $conn->prepare($user_sql);
             $user_stmt->bind_param("i", $register_id);
             $user_stmt->execute();
@@ -72,7 +72,7 @@ if (isset($_POST['update_attendance'])) {
             
             if ($user) {
                 $points_diff = $new_points - $old_points;
-                $update_user = "UPDATE `USER` SET total_point = GREATEST(0, total_point + ?) WHERE user_id = ?";
+                $update_user = "UPDATE `user` SET total_point = GREATEST(0, total_point + ?) WHERE user_id = ?";
                 $update_user_stmt = $conn->prepare($update_user);
                 $update_user_stmt->bind_param("is", $points_diff, $user['user_id']);
                 $update_user_stmt->execute();
@@ -87,10 +87,10 @@ if (isset($_GET['edit_id'])) {
     $edit_sql = "
         SELECT a.$pk_column as attendance_id, a.attend_status, a.point_awarded, a.register_id,
                u.user_id, u.name AS student_name, e.event_name, e.date, a.start_time
-        FROM ATTENDANCE a
-        JOIN EVENT_REGISTRATION er ON a.register_id = er.register_id
-        JOIN `USER` u ON er.user_id = u.user_id
-        JOIN EVENT e ON er.event_id = e.event_id
+        FROM attendance a
+        JOIN event_registration er ON a.register_id = er.register_id
+        JOIN `user` u ON er.user_id = u.user_id
+        JOIN event e ON er.event_id = e.event_id
         WHERE a.$pk_column = ?
     ";
     $edit_stmt = $conn->prepare($edit_sql);
@@ -103,11 +103,11 @@ $attendance_sql = "
     SELECT 
         a.$pk_column as attendance_id, u.user_id, u.name AS student_name, 
         e.event_name, c.club_name, e.date, a.start_time, a.attend_status, a.point_awarded
-    FROM ATTENDANCE a
-    JOIN EVENT_REGISTRATION er ON a.register_id = er.register_id
-    JOIN `USER` u ON er.user_id = u.user_id
-    JOIN EVENT e ON er.event_id = e.event_id
-    JOIN CLUB c ON e.club_id = c.club_id
+    FROM attendance a
+    JOIN event_registration er ON a.register_id = er.register_id
+    JOIN `user` u ON er.user_id = u.user_id
+    JOIN event e ON er.event_id = e.event_id
+    JOIN club c ON e.club_id = c.club_id
     ORDER BY e.date DESC, a.start_time DESC
 ";
 $attendance_result = $conn->query($attendance_sql);

@@ -15,13 +15,11 @@ if (!isset($_GET['club_id'])) {
     exit();
 }
 
-// FIX: Do NOT use intval() here since your IDs are alphanumeric strings (e.g., 'CLB001')
 $club_id = trim($_GET['club_id']);
 
-// Fetch Club Details
 $club_sql = "SELECT * FROM CLUB WHERE club_id = ? AND isActive = 1";
 $stmt = $conn->prepare($club_sql);
-$stmt->bind_param("s", $club_id); // Changed bind type from "i" to "s"
+$stmt->bind_param("s", $club_id); 
 $stmt->execute();
 $club = $stmt->get_result()->fetch_assoc();
 
@@ -30,30 +28,29 @@ if (!$club) {
     exit();
 }
 
-// Fetch Committee Members
 $committee_sql = "
     SELECT u.name, c.position 
     FROM committee c 
-    JOIN `USER` u ON c.user_id = u.user_id 
+    JOIN `user` u ON c.user_id = u.user_id 
     WHERE c.club_id = ? 
     ORDER BY FIELD(c.position, 'President', 'Vice President', 'Secretary', 'Treasurer', 'Committee Member')
 ";
 $stmt = $conn->prepare($committee_sql);
-$stmt->bind_param("s", $club_id); // Changed bind type from "i" to "s"
+$stmt->bind_param("s", $club_id);
 $stmt->execute();
 $committee_members = $stmt->get_result();
 
 // Fetch Upcoming Events
 $upcoming_sql = "SELECT * FROM EVENT WHERE club_id = ? AND date >= CURDATE() ORDER BY date ASC";
 $stmt = $conn->prepare($upcoming_sql);
-$stmt->bind_param("s", $club_id); // Changed bind type from "i" to "s"
+$stmt->bind_param("s", $club_id); 
 $stmt->execute();
 $upcoming_events = $stmt->get_result();
 
 // Fetch Past Events
 $past_sql = "SELECT * FROM EVENT WHERE club_id = ? AND date < CURDATE() ORDER BY date DESC LIMIT 5";
 $stmt = $conn->prepare($past_sql);
-$stmt->bind_param("s", $club_id); // Changed bind type from "i" to "s"
+$stmt->bind_param("s", $club_id);
 $stmt->execute();
 $past_events = $stmt->get_result();
 ?>

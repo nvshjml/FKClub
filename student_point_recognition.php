@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] == 'Admin') {
 $user_id = $_SESSION['user_id'];
 $current_page = basename($_SERVER['PHP_SELF']);
 
-$user_sql = "SELECT name, email, total_point, user_id FROM `USER` WHERE user_id = ?";
+$user_sql = "SELECT name, email, total_point, user_id FROM `user` WHERE user_id = ?";
 $stmt = $conn->prepare($user_sql);
 $stmt->bind_param("s", $user_id);
 $stmt->execute();
@@ -28,7 +28,7 @@ function getRecognitionLevel($points) {
 
 $recognition = getRecognitionLevel($total_points);
 
-$history_sql = "SELECT er.*, e.event_name, e.date, e.time, e.venue FROM EVENT_REGISTRATION er JOIN EVENT e ON er.event_id = e.event_id WHERE er.user_id = ? ORDER BY e.date DESC";
+$history_sql = "SELECT er.*, e.event_name, e.date, e.time, e.venue FROM event_registration er JOIN event e ON er.event_id = e.event_id WHERE er.user_id = ? ORDER BY e.date DESC";
 $stmt = $conn->prepare($history_sql);
 $stmt->bind_param("s", $user_id);
 $stmt->execute();
@@ -42,19 +42,19 @@ while ($row = $registration_history->fetch_assoc()) {
     $history_data[] = $row;
 }
 
-$completed_sql = "SELECT COUNT(*) as total FROM EVENT_REGISTRATION er JOIN EVENT e ON er.event_id = e.event_id WHERE er.user_id = ? AND e.date < CURDATE() AND er.status = 'Registered'";
+$completed_sql = "SELECT COUNT(*) as total FROM event_registration er JOIN event e ON er.event_id = e.event_id WHERE er.user_id = ? AND e.date < CURDATE() AND er.status = 'Registered'";
 $stmt = $conn->prepare($completed_sql);
 $stmt->bind_param("s", $user_id);
 $stmt->execute();
 $completed_count = $stmt->get_result()->fetch_assoc()['total'];
 
-$club_count_sql = "SELECT COUNT(*) as total FROM CLUB_MEMBERSHIP WHERE user_id = ?";
+$club_count_sql = "SELECT COUNT(*) as total FROM club_membership WHERE user_id = ?";
 $stmt = $conn->prepare($club_count_sql);
 $stmt->bind_param("s", $user_id);
 $stmt->execute();
 $club_count = $stmt->get_result()->fetch_assoc()['total'];
 
-$upcoming_sql = "SELECT e.event_name, e.date, e.time, e.venue FROM EVENT_REGISTRATION er JOIN EVENT e ON er.event_id = e.event_id WHERE er.user_id = ? AND e.date >= CURDATE() AND er.status = 'Registered' ORDER BY e.date ASC LIMIT 5";
+$upcoming_sql = "SELECT e.event_name, e.date, e.time, e.venue FROM event_registration er JOIN event e ON er.event_id = e.event_id WHERE er.user_id = ? AND e.date >= CURDATE() AND er.status = 'Registered' ORDER BY e.date ASC LIMIT 5";
 $stmt = $conn->prepare($upcoming_sql);
 $stmt->bind_param("s", $user_id);
 $stmt->execute();

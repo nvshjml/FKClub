@@ -41,7 +41,7 @@ if (!isset($current_page)) {
             <a href="student_profile.php" class="<?php echo ($current_page == 'student_profile.php') ? 'active' : ''; ?>">My Profile</a>
             <a href="student_browse_clubs.php" class="<?php echo ($current_page == 'student_browse_clubs.php') ? 'active' : ''; ?>">Browse Clubs</a>
             <a href="student_event_registration.php" class="<?php echo ($current_page == 'student_event_registration.php') ? 'active' : ''; ?>">Event Registration</a>
-            <a href="committee_club_management.php" class="<?php echo ($current_page == 'committee_club_management.php') ? 'active' : ''; ?>">Club Management</a>
+            <a href="committee_club_details.php" class="<?php echo ($current_page == 'committee_club_details.php') ? 'active' : ''; ?>">Club Management</a>
             <a href="committee_events.php" class="<?php echo ($current_page == 'committee_events.php') ? 'active' : ''; ?>">Manage Events</a>
             <a href="committee_attendance.php" class="<?php echo ($current_page == 'committee_attendance.php') ? 'active' : ''; ?>">Record Attendance</a>
             

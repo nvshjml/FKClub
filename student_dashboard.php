@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $current_page = basename($_SERVER['PHP_SELF']);
 
-$stmt1 = $conn->prepare("SELECT total_point FROM `USER` WHERE user_id = ?");
+$stmt1 = $conn->prepare("SELECT total_point FROM `user` WHERE user_id = ?");
 $stmt1->bind_param("s", $user_id); $stmt1->execute();
 $points_result = $stmt1->get_result()->fetch_assoc();
 $total_points = $points_result ? $points_result['total_point'] : 0;
@@ -24,11 +24,10 @@ $stmt3 = $conn->prepare("SELECT COUNT(*) AS total FROM EVENT_REGISTRATION WHERE 
 $stmt3->bind_param("s", $user_id); $stmt3->execute();
 $total_events = $stmt3->get_result()->fetch_assoc()['total'];
 
-// UPDATED QUERY: Removed the date filter so it fetches BOTH past and upcoming events, ordered by newest first.
-$events_sql = "SELECT e.*, c.club_name FROM EVENT e JOIN CLUB c ON e.club_id = c.club_id ORDER BY e.date DESC";
+$events_sql = "SELECT e.*, c.club_name FROM EVENT e JOIN club c ON e.club_id = c.club_id ORDER BY e.date DESC";
 $events_result = $conn->query($events_sql);
 
-$clubs_sql = "SELECT c.club_id, c.club_name, u.name AS president_name FROM CLUB c LEFT JOIN COMMITTEE com ON c.club_id = com.club_id AND com.position = 'President' LEFT JOIN `USER` u ON com.user_id = u.user_id WHERE c.isActive = 1";
+$clubs_sql = "SELECT c.club_id, c.club_name, u.name AS president_name FROM club c LEFT JOIN committee com ON c.club_id = com.club_id AND com.position = 'President' LEFT JOIN `user` u ON com.user_id = u.user_id WHERE c.isActive = 1";
 $clubs_result = $conn->query($clubs_sql);
 ?>
 <!DOCTYPE html>
@@ -39,7 +38,6 @@ $clubs_result = $conn->query($clubs_sql);
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css"> 
     <style>
-        /* THE LAYOUT CSS (Safely included!) */
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { display: flex; background: #e2e8f0; min-height: 100vh; color: #333; }
         .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; max-width: 1200px; }
@@ -66,7 +64,6 @@ $clubs_result = $conn->query($clubs_sql);
         .btn-action { display: block; width: 100%; text-align: center; padding: 10px; margin-top: 15px; background: #3182ce; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; text-decoration:none; transition: 0.2s; }
         .btn-action:hover { background: #2b6cb0; }
         
-        /* Expandable details section */
         .event-extra-details { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #edf2f7; font-size: 13px; color: #4a5568; animation: fadeIn 0.3s ease-in-out; }
         .event-extra-details p { margin-bottom: 8px; line-height: 1.5; }
         .event-extra-details strong { color: #2d3748; }
@@ -96,7 +93,6 @@ $clubs_result = $conn->query($clubs_sql);
         <div class="grid-container">
             <?php if ($events_result && $events_result->num_rows > 0): ?>
                 <?php while($event = $events_result->fetch_assoc()): 
-                    // Calculate if the event is in the past
                     $is_past = strtotime($event['date']) < strtotime(date('Y-m-d'));
                 ?>
                     <div class="item-card">

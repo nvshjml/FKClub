@@ -12,7 +12,6 @@ $user_id = $_SESSION['user_id'];
 $message = "";
 $message_type = "";
 
-// FETCH USER DETAILS FOR THE MODAL
 $user_stmt = $conn->prepare("SELECT name, email, phone FROM `USER` WHERE user_id = ?");
 $user_stmt->bind_param("s", $user_id);
 $user_stmt->execute();

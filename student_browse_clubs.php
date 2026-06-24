@@ -12,29 +12,24 @@ $user_id = $_SESSION['user_id'];
 $message = "";
 $max_clubs = 3;
 
-// --- 1. HANDLE JOIN CLUB REQUEST ---
 if (isset($_GET['join']) && isset($_GET['club_id'])) {
     $club_id = $_GET['club_id'];
     
-    // Check how many active/pending clubs the user currently has
     $count_stmt = $conn->prepare("SELECT COUNT(*) AS total FROM club_membership WHERE user_id = ? AND status IN ('Approved', 'Pending')");
     $count_stmt->bind_param("s", $user_id);
     $count_stmt->execute();
     $current_count = $count_stmt->get_result()->fetch_assoc()['total'];
     
     if ($current_count < $max_clubs) {
-        // Check if a record already exists (e.g., they left previously)
         $check = $conn->prepare("SELECT status FROM club_membership WHERE user_id = ? AND club_id = ?");
         $check->bind_param("ss", $user_id, $club_id);
         $check->execute();
         
         if ($check->get_result()->num_rows > 0) {
-            // Update existing record back to Pending
             $stmt = $conn->prepare("UPDATE club_membership SET status = 'Pending', join_date = CURDATE() WHERE user_id = ? AND club_id = ?");
             $stmt->bind_param("ss", $user_id, $club_id);
             $stmt->execute();
         } else {
-            // Insert brand new record
             $stmt = $conn->prepare("INSERT INTO club_membership (user_id, club_id, join_date, status) VALUES (?, ?, CURDATE(), 'Pending')");
             $stmt->bind_param("ss", $user_id, $club_id);
             $stmt->execute();
@@ -45,7 +40,6 @@ if (isset($_GET['join']) && isset($_GET['club_id'])) {
     }
 }
 
-// --- 2. HANDLE LEAVE CLUB REQUEST ---
 if (isset($_GET['leave']) && isset($_GET['club_id'])) {
     $club_id = $_GET['club_id'];
     $stmt = $conn->prepare("UPDATE club_membership SET status = 'Left' WHERE club_id = ? AND user_id = ?");
@@ -53,7 +47,6 @@ if (isset($_GET['leave']) && isset($_GET['club_id'])) {
     if ($stmt->execute()) { $message = "You have successfully left the club!"; }
 }
 
-// --- 3. HANDLE CANCEL CLUB REQUEST ---
 if (isset($_GET['cancel']) && isset($_GET['club_id'])) {
     $club_id = $_GET['club_id'];
     $stmt = $conn->prepare("UPDATE club_membership SET status = 'Cancelled' WHERE club_id = ? AND user_id = ?");
@@ -61,20 +54,16 @@ if (isset($_GET['cancel']) && isset($_GET['club_id'])) {
     if ($stmt->execute()) { $message = "Your application has been cancelled."; }
 }
 
-// --- FETCH LIMITS & STATS ---
-// 1. Stat count (Only approved clubs for the dashboard)
 $stmt_stat = $conn->prepare("SELECT COUNT(*) AS total FROM club_membership WHERE user_id = ? AND status = 'Approved'");
 $stmt_stat->bind_param("s", $user_id); 
 $stmt_stat->execute();
 $stat_clubs_count = $stmt_stat->get_result()->fetch_assoc()['total'];
 
-// 2. Limit count (Approved + Pending clubs to prevent spamming applications)
 $stmt_limit = $conn->prepare("SELECT COUNT(*) AS total FROM club_membership WHERE user_id = ? AND status IN ('Approved', 'Pending')");
 $stmt_limit->bind_param("s", $user_id); 
 $stmt_limit->execute();
 $limit_clubs_count = $stmt_limit->get_result()->fetch_assoc()['total'];
 
-// Fetch clubs with subqueries for membership status and president name
 $clubs_sql = "
     SELECT 
         c.club_id, 

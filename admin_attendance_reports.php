@@ -22,27 +22,27 @@ $selected_event_id = isset($_GET['filter_event_id']) ? $conn->real_escape_string
 if (isset($_GET['delete_id'])) {
     $delete_id = intval($_GET['delete_id']);
     
-    $get_sql = "SELECT register_id, point_awarded FROM ATTENDANCE WHERE $pk_column = ?";
+    $get_sql = "SELECT register_id, point_awarded FROM attendance WHERE $pk_column = ?";
     $get_stmt = $conn->prepare($get_sql);
     $get_stmt->bind_param("i", $delete_id);
     $get_stmt->execute();
     $att_record = $get_stmt->get_result()->fetch_assoc();
     
     if ($att_record) {
-        $user_sql = "SELECT user_id FROM EVENT_REGISTRATION WHERE register_id = ?";
+        $user_sql = "SELECT user_id FROM event_registration WHERE register_id = ?";
         $user_stmt = $conn->prepare($user_sql);
         $user_stmt->bind_param("i", $att_record['register_id']);
         $user_stmt->execute();
         $user = $user_stmt->get_result()->fetch_assoc();
         
         if ($user) {
-            $update_user = "UPDATE `USER` SET total_point = GREATEST(0, total_point - ?) WHERE user_id = ?";
+            $update_user = "UPDATE `user` SET total_point = GREATEST(0, total_point - ?) WHERE user_id = ?";
             $update_stmt = $conn->prepare($update_user);
             $update_stmt->bind_param("is", $att_record['point_awarded'], $user['user_id']);
             $update_stmt->execute();
         }
         
-        $delete_sql = "DELETE FROM ATTENDANCE WHERE $pk_column = ?";
+        $delete_sql = "DELETE FROM attendance WHERE $pk_column = ?";
         $delete_stmt = $conn->prepare($delete_sql);
         $delete_stmt->bind_param("i", $delete_id);
         
@@ -60,7 +60,7 @@ if (isset($_POST['update_attendance'])) {
     $attend_status = $_POST['attend_status'];
     $new_points = intval($_POST['point_awarded']);
     
-    $old_sql = "SELECT point_awarded, register_id FROM ATTENDANCE WHERE $pk_column = ?";
+    $old_sql = "SELECT point_awarded, register_id FROM attendance WHERE $pk_column = ?";
     $old_stmt = $conn->prepare($old_sql);
     $old_stmt->bind_param("i", $attendance_id);
     $old_stmt->execute();
@@ -70,12 +70,12 @@ if (isset($_POST['update_attendance'])) {
         $old_points = $old_data['point_awarded'];
         $register_id = $old_data['register_id'];
         
-        $update_sql = "UPDATE ATTENDANCE SET attend_status = ?, point_awarded = ? WHERE $pk_column = ?";
+        $update_sql = "UPDATE attendance SET attend_status = ?, point_awarded = ? WHERE $pk_column = ?";
         $update_stmt = $conn->prepare($update_sql);
         $update_stmt->bind_param("sii", $attend_status, $new_points, $attendance_id);
         
         if ($update_stmt->execute()) {
-            $user_sql = "SELECT user_id FROM EVENT_REGISTRATION WHERE register_id = ?";
+            $user_sql = "SELECT user_id FROM event_registration WHERE register_id = ?";
             $user_stmt = $conn->prepare($user_sql);
             $user_stmt->bind_param("i", $register_id);
             $user_stmt->execute();
@@ -83,7 +83,7 @@ if (isset($_POST['update_attendance'])) {
             
             if ($user) {
                 $points_diff = $new_points - $old_points;
-                $update_user = "UPDATE `USER` SET total_point = GREATEST(0, total_point + ?) WHERE user_id = ?";
+                $update_user = "UPDATE `user` SET total_point = GREATEST(0, total_point + ?) WHERE user_id = ?";
                 $update_user_stmt = $conn->prepare($update_user);
                 $update_user_stmt->bind_param("is", $points_diff, $user['user_id']);
                 $update_user_stmt->execute();
@@ -103,10 +103,10 @@ if (isset($_GET['edit_id'])) {
     $edit_sql = "
         SELECT a.$pk_column as attendance_id, a.attend_status, a.point_awarded, a.register_id,
                u.user_id, u.name AS student_name, e.event_name, e.date, a.start_time
-        FROM ATTENDANCE a
-        JOIN EVENT_REGISTRATION er ON a.register_id = er.register_id
-        JOIN `USER` u ON er.user_id = u.user_id
-        JOIN EVENT e ON er.event_id = e.event_id
+        FROM attendance a
+        JOIN event_registration er ON a.register_id = er.register_id
+        JOIN `user` u ON er.user_id = u.user_id
+        JOIN event e ON er.event_id = e.event_id
         WHERE a.$pk_column = ?
     ";
     $edit_stmt = $conn->prepare($edit_sql);
@@ -120,11 +120,11 @@ $attendance_sql = "
     SELECT 
         a.$pk_column as attendance_id, u.user_id, u.name AS student_name, e.event_name, 
         c.club_name, e.date, a.start_time, a.attend_status, a.point_awarded, e.event_id
-    FROM ATTENDANCE a
-    JOIN EVENT_REGISTRATION er ON a.register_id = er.register_id
-    JOIN `USER` u ON er.user_id = u.user_id
-    JOIN EVENT e ON er.event_id = e.event_id
-    JOIN CLUB c ON e.club_id = c.club_id
+    FROM attendance a
+    JOIN event_registration er ON a.register_id = er.register_id
+    JOIN `user` u ON er.user_id = u.user_id
+    JOIN event e ON er.event_id = e.event_id
+    JOIN club c ON e.club_id = c.club_id
 ";
 
 if (!empty($selected_event_id)) {
@@ -160,17 +160,17 @@ $events_conducted = $events_conducted_q->fetch_assoc()['total'];
 
 $participation_q = $conn->query("
     SELECT COUNT(*) AS total 
-    FROM ATTENDANCE a 
-    JOIN EVENT_REGISTRATION er ON a.register_id = er.register_id 
-    JOIN EVENT e ON er.event_id = e.event_id 
+    FROM attendance a 
+    JOIN event_registration er ON a.register_id = er.register_id 
+    JOIN event e ON er.event_id = e.event_id 
     WHERE a.attend_status IN ('Present', 'Late', 'Volunteer') AND $event_where
 ");
 $total_participation = $participation_q->fetch_assoc()['total'];
 
 $total_registered_q = $conn->query("
     SELECT COUNT(*) AS total 
-    FROM EVENT_REGISTRATION er 
-    JOIN EVENT e ON er.event_id = e.event_id 
+    FROM event_registration er 
+    JOIN event e ON er.event_id = e.event_id 
     WHERE er.status = 'Registered' AND e.date <= CURDATE() AND $event_where
 ");
 $total_registered = $total_registered_q->fetch_assoc()['total'];
@@ -183,16 +183,16 @@ $point_dist_q = $conn->query("
         SUM(CASE WHEN total_point BETWEEN 20 AND 49 THEN 1 ELSE 0 END) as tier2,
         SUM(CASE WHEN total_point BETWEEN 50 AND 79 THEN 1 ELSE 0 END) as tier3,
         SUM(CASE WHEN total_point >= 80 THEN 1 ELSE 0 END) as tier4
-    FROM `USER` WHERE role IN ('Student', 'Committee') AND account_status = 'Approved'
+    FROM `user` WHERE role IN ('Student', 'Committee') AND account_status = 'Approved'
 ");
 $point_dist = $point_dist_q->fetch_assoc();
 
 // Chart 2: Participation Trends
 $trends_q = $conn->query("
     SELECT DATE_FORMAT(e.date, '%b %Y') as month_year, COUNT(a.attend_id) as participants
-    FROM EVENT e
-    JOIN EVENT_REGISTRATION er ON e.event_id = er.event_id
-    JOIN ATTENDANCE a ON er.register_id = a.register_id
+    FROM event e
+    JOIN event_registration er ON e.event_id = er.event_id
+    JOIN attendance a ON er.register_id = a.register_id
     WHERE a.attend_status IN ('Present', 'Late', 'Volunteer') AND $event_where
     GROUP BY DATE_FORMAT(e.date, '%Y-%m'), month_year
     ORDER BY e.date ASC LIMIT 6
@@ -207,10 +207,10 @@ while($row = $trends_q->fetch_assoc()) {
 // Attendance Rate Per Event
 $event_rates_sql = "
     SELECT e.event_name, c.club_name, e.date,
-           (SELECT COUNT(*) FROM EVENT_REGISTRATION er WHERE er.event_id = e.event_id AND er.status='Registered') as registered,
-           (SELECT COUNT(*) FROM ATTENDANCE a JOIN EVENT_REGISTRATION er2 ON a.register_id = er2.register_id WHERE er2.event_id = e.event_id AND a.attend_status IN ('Present', 'Late', 'Volunteer')) as attended
-    FROM EVENT e
-    JOIN CLUB c ON e.club_id = c.club_id
+           (SELECT COUNT(*) FROM event_registration er WHERE er.event_id = e.event_id AND er.status='Registered') as registered,
+           (SELECT COUNT(*) FROM attendance a JOIN event_registration er2 ON a.register_id = er2.register_id WHERE er2.event_id = e.event_id AND a.attend_status IN ('Present', 'Late', 'Volunteer')) as attended
+    FROM event e
+    JOIN club c ON e.club_id = c.club_id
     WHERE e.date <= CURDATE() AND $event_where
     ORDER BY e.date DESC
 ";
@@ -219,16 +219,16 @@ $event_rates = $conn->query($event_rates_sql);
 // Most Active Students
 $active_students = $conn->query("
     SELECT user_id, name, total_point, role
-    FROM `USER`
+    FROM `user`
     WHERE role IN ('Student', 'Committee') AND account_status = 'Approved'
     ORDER BY total_point DESC
     LIMIT 10
 ");
 
-$clubs = $conn->query("SELECT club_id, club_name FROM CLUB WHERE isActive = 1 ORDER BY club_name ASC");
+$clubs = $conn->query("SELECT club_id, club_name FROM club WHERE isActive = 1 ORDER BY club_name ASC");
 
 $sidebar_pending_count = 0;
-$sidebar_stmt = $conn->query("SELECT COUNT(*) AS total FROM `USER` WHERE account_status = 'Pending'");
+$sidebar_stmt = $conn->query("SELECT COUNT(*) AS total FROM `user` WHERE account_status = 'Pending'");
 if($sidebar_stmt) {
     $sidebar_pending_count = $sidebar_stmt->fetch_assoc()['total'];
 }
@@ -389,7 +389,7 @@ if($sidebar_stmt) {
                     <?php endwhile; ?>
                 </select>
                 <?php if (!empty($selected_event_id)): 
-                    $event_name_sql = "SELECT event_name FROM EVENT WHERE event_id = '$selected_event_id'";
+                    $event_name_sql = "SELECT event_name FROM event WHERE event_id = '$selected_event_id'";
                     $event_name_result = $conn->query($event_name_sql);
                     $selected_event = $event_name_result->fetch_assoc();
                 ?>

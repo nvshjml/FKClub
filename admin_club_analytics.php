@@ -112,28 +112,28 @@ if (isset($_SESSION['dashboard_flash_msg'])) {
     unset($_SESSION['dashboard_flash_msg']);
 }
 
-$total_clubs_query = $conn->query("SELECT COUNT(*) AS total FROM CLUB");
+$total_clubs_query = $conn->query("SELECT COUNT(*) AS total FROM club");
 $total_clubs = $total_clubs_query->fetch_assoc()['total'];
 
-$active_clubs_query = $conn->query("SELECT COUNT(*) AS total FROM CLUB WHERE isActive = 1");
+$active_clubs_query = $conn->query("SELECT COUNT(*) AS total FROM club WHERE isActive = 1");
 $active_clubs = $active_clubs_query->fetch_assoc()['total'];
 
 $students_involved_query = $conn->query("
     SELECT COUNT(DISTINCT user_id) AS total FROM (
-        SELECT user_id FROM CLUB_MEMBERSHIP WHERE status = 'Approved'
+        SELECT user_id FROM club_membership WHERE status = 'Approved'
         UNION
-        SELECT user_id FROM COMMITTEE
+        SELECT user_id FROM committee
     ) AS all_members
 ");
 $students_involved = $students_involved_query->fetch_assoc()['total'];
 
 $distribution_query = $conn->query("
     SELECT c.club_name, COUNT(DISTINCT combined.user_id) as member_count 
-    FROM CLUB c 
+    FROM club c 
     LEFT JOIN (
-        SELECT club_id, user_id FROM CLUB_MEMBERSHIP WHERE status = 'Approved'
+        SELECT club_id, user_id FROM club_membership WHERE status = 'Approved'
         UNION
-        SELECT club_id, user_id FROM COMMITTEE
+        SELECT club_id, user_id FROM committee
     ) as combined ON c.club_id = combined.club_id
     GROUP BY c.club_id, c.club_name
 ");
@@ -150,7 +150,7 @@ $clubs_sql = "
     SELECT c.club_id, c.club_name, c.isActive, c.advisor_name, u.name AS president_name 
     FROM CLUB c 
     LEFT JOIN committee com ON c.club_id = com.club_id AND com.position = 'President' 
-    LEFT JOIN `USER` u ON com.user_id = u.user_id 
+    LEFT JOIN `user` u ON com.user_id = u.user_id 
     ORDER BY c.club_name ASC
 ";
 $clubs_result = $conn->query($clubs_sql);
