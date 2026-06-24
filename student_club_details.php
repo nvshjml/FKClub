@@ -17,7 +17,7 @@ if (!isset($_GET['club_id'])) {
 
 $club_id = trim($_GET['club_id']);
 
-$club_sql = "SELECT * FROM CLUB WHERE club_id = ? AND isActive = 1";
+$club_sql = "SELECT * FROM club WHERE club_id = ? AND isActive = 1";
 $stmt = $conn->prepare($club_sql);
 $stmt->bind_param("s", $club_id); 
 $stmt->execute();
@@ -41,14 +41,14 @@ $stmt->execute();
 $committee_members = $stmt->get_result();
 
 // Fetch Upcoming Events
-$upcoming_sql = "SELECT * FROM EVENT WHERE club_id = ? AND date >= CURDATE() ORDER BY date ASC";
+$upcoming_sql = "SELECT * FROM event WHERE club_id = ? AND date >= CURDATE() ORDER BY date ASC";
 $stmt = $conn->prepare($upcoming_sql);
 $stmt->bind_param("s", $club_id); 
 $stmt->execute();
 $upcoming_events = $stmt->get_result();
 
 // Fetch Past Events
-$past_sql = "SELECT * FROM EVENT WHERE club_id = ? AND date < CURDATE() ORDER BY date DESC LIMIT 5";
+$past_sql = "SELECT * FROM event WHERE club_id = ? AND date < CURDATE() ORDER BY date DESC LIMIT 5";
 $stmt = $conn->prepare($past_sql);
 $stmt->bind_param("s", $club_id);
 $stmt->execute();

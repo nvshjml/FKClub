@@ -12,7 +12,7 @@ $user_id = $_SESSION['user_id'];
 $message = "";
 $message_type = "";
 
-$user_stmt = $conn->prepare("SELECT name, email, phone FROM `USER` WHERE user_id = ?");
+$user_stmt = $conn->prepare("SELECT name, email, phone FROM `user` WHERE user_id = ?");
 $user_stmt->bind_param("s", $user_id);
 $user_stmt->execute();
 $current_user = $user_stmt->get_result()->fetch_assoc();
@@ -25,7 +25,7 @@ if (isset($_POST['confirm_registration']) && isset($_POST['event_id'])) {
     $updated_phone = trim($_POST['phone']);
 
     // UPDATE USER'S PHONE NUMBER FIRST
-    $upd_user = $conn->prepare("UPDATE `USER` SET phone = ? WHERE user_id = ?");
+    $upd_user = $conn->prepare("UPDATE `user` SET phone = ? WHERE user_id = ?");
     $upd_user->bind_param("ss", $updated_phone, $user_id);
     $upd_user->execute();
 

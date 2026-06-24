@@ -37,17 +37,17 @@ if (isset($_POST['update_btn'])) {
     // Dynamic Update Query (Hashes the password securely if provided)
     if (!empty($new_password) && $photo_path) {
         $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-        $stmt = $conn->prepare("UPDATE `USER` SET phone = ?, pass_hash = ?, profile_photo = ? WHERE user_id = ?");
+        $stmt = $conn->prepare("UPDATE `user` SET phone = ?, pass_hash = ?, profile_photo = ? WHERE user_id = ?");
         $stmt->bind_param("ssss", $new_phone, $hashed_password, $photo_path, $user_id);
     } elseif ($photo_path) {
-        $stmt = $conn->prepare("UPDATE `USER` SET phone = ?, profile_photo = ? WHERE user_id = ?");
+        $stmt = $conn->prepare("UPDATE `user` SET phone = ?, profile_photo = ? WHERE user_id = ?");
         $stmt->bind_param("sss", $new_phone, $photo_path, $user_id);
     } elseif (!empty($new_password)) {
         $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-        $stmt = $conn->prepare("UPDATE `USER` SET phone = ?, pass_hash = ? WHERE user_id = ?");
+        $stmt = $conn->prepare("UPDATE `user` SET phone = ?, pass_hash = ? WHERE user_id = ?");
         $stmt->bind_param("sss", $new_phone, $hashed_password, $user_id);
     } else {
-        $stmt = $conn->prepare("UPDATE `USER` SET phone = ? WHERE user_id = ?");
+        $stmt = $conn->prepare("UPDATE `user` SET phone = ? WHERE user_id = ?");
         $stmt->bind_param("ss", $new_phone, $user_id);
     }
 
@@ -61,7 +61,7 @@ if (isset($_POST['update_btn'])) {
 }
 
 // 2. FETCH CURRENT PROFILE DATA
-$stmt = $conn->prepare("SELECT * FROM `USER` WHERE user_id = ?");
+$stmt = $conn->prepare("SELECT * FROM `user` WHERE user_id = ?");
 $stmt->bind_param("s", $user_id); 
 $stmt->execute();
 $user_data = $stmt->get_result()->fetch_assoc();

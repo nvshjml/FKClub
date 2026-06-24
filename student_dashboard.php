@@ -16,15 +16,15 @@ $stmt1->bind_param("s", $user_id); $stmt1->execute();
 $points_result = $stmt1->get_result()->fetch_assoc();
 $total_points = $points_result ? $points_result['total_point'] : 0;
 
-$stmt2 = $conn->prepare("SELECT COUNT(*) AS total FROM CLUB_MEMBERSHIP WHERE user_id = ?");
+$stmt2 = $conn->prepare("SELECT COUNT(*) AS total FROM club_membership WHERE user_id = ?");
 $stmt2->bind_param("s", $user_id); $stmt2->execute();
 $total_clubs = $stmt2->get_result()->fetch_assoc()['total'];
 
-$stmt3 = $conn->prepare("SELECT COUNT(*) AS total FROM EVENT_REGISTRATION WHERE user_id = ?");
+$stmt3 = $conn->prepare("SELECT COUNT(*) AS total FROM event_registration WHERE user_id = ?");
 $stmt3->bind_param("s", $user_id); $stmt3->execute();
 $total_events = $stmt3->get_result()->fetch_assoc()['total'];
 
-$events_sql = "SELECT e.*, c.club_name FROM EVENT e JOIN club c ON e.club_id = c.club_id ORDER BY e.date DESC";
+$events_sql = "SELECT e.*, c.club_name FROM event e JOIN club c ON e.club_id = c.club_id ORDER BY e.date DESC";
 $events_result = $conn->query($events_sql);
 
 $clubs_sql = "SELECT c.club_id, c.club_name, u.name AS president_name FROM club c LEFT JOIN committee com ON c.club_id = com.club_id AND com.position = 'President' LEFT JOIN `user` u ON com.user_id = u.user_id WHERE c.isActive = 1";
